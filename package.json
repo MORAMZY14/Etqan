@@ -1,0 +1,16 @@
+{
+  "name": "Etqan",
+  "version": "1.0.0",
+  "scripts": {
+    "lint": "cross-env eslint ."
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "eslint": "^7.32.0"
+  },
+  "dependencies": {
+    "cocoapods": "^0.0.0",
+    "firebase-functions": "^3.15.7",
+    "nodemailer": "^6.6.5"
+  }
+}

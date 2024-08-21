@@ -1,0 +1,49 @@
+plugins {
+    id "com.android.application"
+    id "com.google.gms.google-services"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Define Kotlin version
+ext.kotlin_version = '1.8.22'
+
+// Define version code and version name
+def flutterVersionCode = project.hasProperty('flutterVersionCode') ? project.flutterVersionCode.toInteger() : 1
+def flutterVersionName = project.hasProperty('flutterVersionName') ? project.flutterVersionName : "1.0"
+
+android {
+    namespace = "com.example.etqan"
+    compileSdkVersion 34
+    ndkVersion = project.hasProperty('flutter.ndkVersion') ? project.property('flutter.ndkVersion') : "21.3.6528147"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        applicationId = "com.example.etqan"
+        resValue "string", "applicationName", "com.example.etqan.MainApplication"
+        minSdkVersion 23
+        targetSdkVersion 33
+        versionCode flutterVersionCode
+        versionName flutterVersionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+// Apply Kotlin plugin with version
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    // Add other dependencies here
+}
+
+flutter {
+    source = "../.."
+}

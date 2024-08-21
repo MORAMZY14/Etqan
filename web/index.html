@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Etqan Center</title>
+  <script defer src="main.dart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-analytics.js"></script>
+  <script src="js_interop.js"></script>
+  <script>
+    const firebaseConfig = {
+     apiKey: "AIzaSyA9xV4MuX4_HIkNCRWy2dNOgRRfDPa8cw0",
+     authDomain: "etqan-center.firebaseapp.com",
+     databaseURL: "https://etqan-center-default-rtdb.europe-west1.firebasedatabase.app",
+     projectId: "etqan-center",
+     storageBucket: "etqan-center.appspot.com",
+     messagingSenderId: "277429609000",
+     appId: "1:277429609000:web:907d2bd40e028c7e104b1d",
+     measurementId: "G-3HVEVDW1J3"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+  </script>
+  <link rel="stylesheet" type="text/css" href="splash/style.css">
+</head>
+<body>
+  <picture id="splash">
+    <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light) or (prefers-color-scheme: no-preference)">
+    <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
+    <img class="center" aria-hidden="true" src="splash/img/light-1x.png" />
+  </picture>
+<h1>Welcome to Etqan Center</h1>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "277429609000",
+    "firebase_url": "https://etqan-center-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "etqan-center",
+    "storage_bucket": "etqan-center.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:277429609000:android:a6df41e6af1c0fe2104b1d",
+        "android_client_info": {
+          "package_name": "com.example.etqan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCKGxDtkqnVOQHVYqBIvvTJI-Ci_vVKf4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
