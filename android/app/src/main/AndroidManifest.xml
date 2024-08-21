@@ -3,32 +3,11 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> <!-- For Android 13+ -->
 
     <application
         android:label="Etqan"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-
-
-
-        <!-- Local Notification Service -->
-        <service
-            android:name="com.dexterous.flutterlocalnotifications.NotificationService"
-            android:exported="true"
-            android:permission="android.permission.BIND_JOB_SERVICE"/>
-
-        <!-- Local Notification Receiver -->
-        <receiver
-            android:name="com.dexterous.flutterlocalnotifications.NotificationReceiver"
-            android:exported="true"/>
-
-        <!-- Notification Action Receiver -->
-        <receiver
-            android:name="com.dexterous.flutterlocalnotifications.NotificationActionReceiver"
-            android:exported="true"/>
 
         <activity
             android:name=".MainActivity"

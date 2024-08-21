@@ -1,4 +1,3 @@
-import 'package:Etqan/notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +11,6 @@ import 'register_page.dart';
 import 'tour_page.dart';
 import 'about_page.dart';
 import 'user_page.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,23 +24,14 @@ void main() async {
       );
     }
 
-    // Initialize notification plugin
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    // Initialize notification service with the notification plugin
-    NotificationService notificationService = NotificationService(flutterLocalNotificationsPlugin);
-
-    // Run the app after Firebase and notifications are initialized
-    runApp(MyApp(homePage: await getInitialPage(notificationService), notificationService: notificationService));
+    // Run the app after Firebase is initialized
+    runApp(MyApp(homePage: await getInitialPage()));
   } catch (e) {
     print('Error initializing Firebase: $e');
   }
 }
 
-Future<Widget> getInitialPage(NotificationService notificationService) async {
+Future<Widget> getInitialPage() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   bool rememberMe = prefs.getBool('rememberMe') ?? false;
   if (rememberMe) {
@@ -51,14 +40,13 @@ Future<Widget> getInitialPage(NotificationService notificationService) async {
       return UserPage(email: email);
     }
   }
-  return MyHomePage(notificationService: notificationService);
+  return MyHomePage();
 }
 
 class MyApp extends StatelessWidget {
   final Widget homePage;
-  final NotificationService notificationService;
 
-  const MyApp({super.key, required this.homePage, required this.notificationService});
+  const MyApp({super.key, required this.homePage});
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +57,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  final NotificationService notificationService;
-
-  const MyHomePage({super.key, required this.notificationService});
+  const MyHomePage({super.key});
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -79,16 +65,13 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late final NotificationService _notificationService;
   List<CustomListItem> items = [];
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _notificationService = widget.notificationService;
     fetchDataFromFirestore();
-    listenForNewRegistrations();
   }
 
   Future<void> fetchDataFromFirestore() async {
@@ -194,28 +177,6 @@ class _MyHomePageState extends State<MyHomePage> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
     );
-  }
-
-  void listenForNewRegistrations() {
-    _firestore.collection('Courses').snapshots().listen((snapshot) {
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.modified) {
-          var courseData = change.doc.data();
-          if (courseData != null) {
-            var newUser = detectNewUser(courseData);
-            if (newUser != null) {
-              _notificationService.sendNotification(change.doc.id);
-            }
-          }
-        }
-      }
-    });
-  }
-
-  dynamic detectNewUser(Map<String, dynamic> courseData) {
-    // Implement your logic to detect a new user
-    // Return the new user details or null
-    return null; // Placeholder; implement your actual logic
   }
 
   @override
@@ -376,15 +337,14 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(icon, color: Colors.white, size: 48.0),
+            Icon(icon, color: Colors.white, size: 50.0),
             const SizedBox(height: 10.0),
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
+                fontFamily: 'sans-serif-black',
                 fontSize: 20.0,
-                fontFamily: 'Roboto',
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
