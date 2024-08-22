@@ -404,7 +404,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello, Dr. $_userName',
+                  'Hello,$_userName',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isSmallScreen ? 18 : 24,
