@@ -12,7 +12,7 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.grey,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -49,12 +49,12 @@ class SettingsPage extends StatelessWidget {
       elevation: 4.0,
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       child: ListTile(
-        leading: Icon(icon, color: Colors.teal),
+        leading: Icon(icon, color: Colors.grey),
         title: Text(
           title,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.teal),
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
         onTap: onPressed,
       ),
     );

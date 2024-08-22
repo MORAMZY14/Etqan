@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'admins_user_edit.dart';
+import 'announcement_admin_page.dart';
 import 'bottom_bar_admin.dart';
 import 'admin_login_page.dart';
 import 'course_management_page.dart';
@@ -309,10 +311,14 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
               _buildCategoryButton('Courses', Icons.book, Colors.blue, () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) =>  const CourseManagementPage()),
+                  MaterialPageRoute(builder: (context) =>   CourseManagementPage()),
                 );
               }),
               _buildCategoryButton('Announce', Icons.notifications, Colors.red, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   AnnouncementsPage()),
+                );
               }),
               _buildCategoryButton('Grades', Icons.grade, Colors.green, () {}),
             ],
@@ -322,7 +328,12 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildCategoryButton('Payments', Icons.payment, Colors.orange, () {}),
-              _buildCategoryButton('Users', Icons.people, Colors.purple, () {}),
+              _buildCategoryButton('Users', Icons.people, Colors.purple, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   AdminsUserEditPage()),
+                );
+              }),
               _buildCategoryButton('Settings', Icons.settings, Colors.grey, () {
                 Navigator.push(
                   context,

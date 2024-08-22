@@ -29,7 +29,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Course Management'),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.blue, // Changed from teal to blue
       ),
       body: SafeArea(
         child: Column(
@@ -108,7 +108,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
               padding: const EdgeInsets.all(16.0),
               child: FloatingActionButton(
                 onPressed: _showAddCourseDialog,
-                backgroundColor: Colors.teal,
+                backgroundColor: Colors.blue, // Changed from teal to blue
                 child: const Icon(Icons.add),
               ),
             ),
@@ -389,49 +389,18 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         'duration': duration,
         'totalStudents': totalStudents,
       });
+      print('Course updated successfully!');
     } catch (e) {
       print('Error updating course: $e');
     }
   }
 
-  void _deleteCourse(String courseId) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Course'),
-          content: const Text('Are you sure you want to delete this course?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  // Delete course data
-                  await _firestore.collection('Courses').doc(courseId).delete();
-
-                  // Delete image
-                  final imageRef = _storage.ref('courses/$courseId/$courseId.png');
-                  await imageRef.delete();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Course deleted successfully.')),
-                  );
-                } catch (e) {
-                  print('Error deleting course: $e');
-                } finally {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _deleteCourse(String courseId) async {
+    try {
+      await _firestore.collection('Courses').doc(courseId).delete();
+      print('Course deleted successfully!');
+    } catch (e) {
+      print('Error deleting course: $e');
+    }
   }
 }
