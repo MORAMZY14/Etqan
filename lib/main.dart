@@ -39,7 +39,7 @@ Future<void> _initializeNotifications() async {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-  final IOSInitializationSettings initializationSettingsIOS = IOSInitializationSettings(
+  final DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
     requestSoundPermission: true,
     requestBadgePermission: true,
     requestAlertPermission: true,
@@ -49,9 +49,13 @@ Future<void> _initializeNotifications() async {
     iOS: initializationSettingsIOS,
   );
 
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  try {
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    print('Notifications initialized successfully');
+  } catch (e) {
+    print('Error initializing notifications: $e');
+  }
 }
-
 Future<Widget> getInitialPage() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   bool rememberMe = prefs.getBool('rememberMe') ?? false;

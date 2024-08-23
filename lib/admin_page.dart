@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Import the package
 import 'admins_user_edit.dart';
 import 'announcement_admin_page.dart';
 import 'bottom_bar_admin.dart';
@@ -37,7 +37,6 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
     _tabController = TabController(length: 3, vsync: this);
     _initializeData();
     _activateAppCheck();
-    _initializeNotifications(); // Initialize notifications
   }
 
   @override
@@ -68,33 +67,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _initializeNotifications() async {
-    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
-  }
-
-  Future<void> _showNotification(String courseId) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'your_channel_id', 'your_channel_name',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-    await _flutterLocalNotificationsPlugin.show(
-      0,
-      'New User Registered',
-      'A new user has registered for course $courseId',
-      platformChannelSpecifics,
-      payload: courseId,
-    );
-  }
 
   Future<void> _fetchAdminData(String email) async {
     try {
@@ -121,6 +94,33 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         _adminId = 'N/A';
       });
     }
+  }
+  Future<void> _initializeNotifications() async {
+    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String courseId) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'your_channel_id', 'your_channel_name',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+    );
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      'New User Registered',
+      'A new user has registered for course $courseId',
+      platformChannelSpecifics,
+      payload: courseId,
+    );
   }
 
   String _getFirstName(String fullName) {
@@ -319,102 +319,223 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: TextField(
+      child: const TextField(
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: 'Search for courses...',
+          hintText: 'Search',
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(
-            vertical: isSmallScreen ? 10 : 15,
-          ),
+          suffixIcon: Icon(Icons.search, color: Colors.grey),
         ),
       ),
     );
   }
 
   Widget _buildCategoryButtons(bool isSmallScreen) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildCategoryButton('All', isSmallScreen),
-        _buildCategoryButton('Popular', isSmallScreen),
-        _buildCategoryButton('New', isSmallScreen),
-      ],
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildCategoryButton('Courses', Icons.book, Colors.blue, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   CourseManagementPage()),
+                );
+              }),
+              _buildCategoryButton('Announce', Icons.notifications, Colors.red, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   AnnouncementsPage()),
+                );
+              }),
+              _buildCategoryButton('Grades', Icons.grade, Colors.green, () {}),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildCategoryButton('Payments', Icons.payment, Colors.orange, () {}),
+              _buildCategoryButton('Users', Icons.people, Colors.purple, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   AdminsUserEditPage()),
+                );
+              }),
+              _buildCategoryButton('Settings', Icons.settings, Colors.grey, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>  const SettingsPage()),
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCategoryButton(String label, bool isSmallScreen) {
-    return ElevatedButton(
-      onPressed: () {
-        // Handle category button press
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        padding: EdgeInsets.symmetric(
-          vertical: isSmallScreen ? 10 : 15,
-          horizontal: isSmallScreen ? 20 : 30,
+  Widget _buildCategoryButton(String title, IconData icon, Color color, VoidCallback onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(15),
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: isSmallScreen ? 14 : 18,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(height: 5),
+            Text(title, style: const TextStyle(color: Colors.white)),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildTrendingCoursesSection(bool isSmallScreen) {
-    return Column(
-      children: [
-        Text(
-          'Trending Courses',
-          style: TextStyle(
-            fontSize: isSmallScreen ? 20 : 24,
-            fontWeight: FontWeight.bold,
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('Courses').where('status', isEqualTo: 'trendy').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No trending courses available.'));
+        }
+
+        final courses = snapshot.data!.docs;
+
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Trending Courses',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: isSmallScreen ? 200 : 250,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: courses.length,
+                  itemBuilder: (context, index) {
+                    final course = courses[index];
+                    final imageUrl = _getImageUrl(course.id);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Image.network(imageUrl, fit: BoxFit.cover, height: 120, width: 160),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(course['name']),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 20),
-        // Add your trending courses widget here
-      ],
+        );
+      },
     );
   }
 
+  String _getImageUrl(String courseId) {
+    return 'https://firebasestorage.googleapis.com/v0/b/${_storage.bucket}/o/courses%2F$courseId%2F$courseId.png?alt=media';
+  }
+
   Widget _buildAdminActionsSection(bool isSmallScreen) {
-    return Column(
-      children: [
-        Text(
-          'Admin Actions',
-          style: TextStyle(
-            fontSize: isSmallScreen ? 20 : 24,
-            fontWeight: FontWeight.bold,
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 20 : 40,
+        vertical: isSmallScreen ? 20 : 40,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Admin Actions',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 18 : 24,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
-        // Add your admin actions widget here
-      ],
+          const SizedBox(height: 20),
+          _buildActionButton('Add New Course', Icons.add, Colors.blue, () {
+            // Add your functionality here
+          }),
+          const SizedBox(height: 10),
+          _buildActionButton('Manage Courses', Icons.manage_search, Colors.green, () {
+            // Add your functionality here
+          }),
+          const SizedBox(height: 10),
+          _buildActionButton('View Announcements', Icons.announcement, Colors.orange, () {
+            // Add your functionality here
+          }),
+        ],
+      ),
     );
   }
 
   Widget _buildCourseManagementSection(bool isSmallScreen) {
-    return Column(
-      children: [
-        Text(
-          'Manage Courses',
-          style: TextStyle(
-            fontSize: isSmallScreen ? 20 : 24,
-            fontWeight: FontWeight.bold,
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 20 : 40,
+        vertical: isSmallScreen ? 20 : 40,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Course Management',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 18 : 24,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          const SizedBox(height: 20),
+          _buildActionButton('Manage Courses', Icons.school, Colors.blue, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CourseManagementPage()),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(title, style: const TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        minimumSize: const Size(double.infinity, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
-        const SizedBox(height: 20),
-        // Add your course management widget here
-      ],
+      ),
     );
   }
 }
