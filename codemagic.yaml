@@ -27,11 +27,6 @@ workflows:
       - name: Build iOS
         script: |
           flutter build ios --release --no-codesign
-      - name: Archive iOS build
-        script: |
-          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -sdk iphoneos -configuration AppStoreDistribution archive -archivePath build/Runner.xcarchive
-      - name: Export IPA
-        script: |
-          xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportOptionsPlist ios/ExportOptions.plist -exportPath build/ios/iphoneos
     artifacts:
+      - build/ios/iphoneos/*.app
       - build/ios/iphoneos/*.ipa
