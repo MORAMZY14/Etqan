@@ -50,22 +50,10 @@
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
 
-		<!-- Photo Library and Camera Usage Descriptions -->
+
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photo library to allow you to select images.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>We need access to your camera to allow you to take photos.</string>
-
-		<!-- Local Notifications Configuration -->
-		<key>UIBackgroundModes</key>
-		<array>
-			<string>fetch</string>
-			<string>remote-notification</string>
-		</array>
-		<key>UNAuthorizationStatus</key>
-		<dict>
-			<key>NSPhotoLibraryUsageDescription</key>
-			<string>We need access to your photo library to allow you to select images.</string>
-		</dict>
 	</dict>
 </plist>

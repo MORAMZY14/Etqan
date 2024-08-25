@@ -8,14 +8,6 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-
-    // Initialize local notifications
-    initializeLocalNotifications()
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-
-  private func initializeLocalNotifications() {
-    // Local notifications initialization code, if needed
   }
 }

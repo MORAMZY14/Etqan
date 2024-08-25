@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'admins_user_edit.dart';
@@ -23,7 +22,7 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-  late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
+
 
   String _userName = 'Loading...';
   String _adminId = 'Loading...';
@@ -94,33 +93,6 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         _adminId = 'N/A';
       });
     }
-  }
-  Future<void> _initializeNotifications() async {
-    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
-  }
-
-  Future<void> _showNotification(String courseId) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'your_channel_id', 'your_channel_name',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-    await _flutterLocalNotificationsPlugin.show(
-      0,
-      'New User Registered',
-      'A new user has registered for course $courseId',
-      platformChannelSpecifics,
-      payload: courseId,
-    );
   }
 
   String _getFirstName(String fullName) {

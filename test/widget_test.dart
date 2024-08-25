@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:Etqan/main.dart'; // Import your main file where MyApp is defined
+import 'package:Etqan/main.dart';
 
 void main() {
   setUpAll(() async {
@@ -12,11 +12,7 @@ void main() {
 
   testWidgets('HomePage displays correctly', (WidgetTester tester) async {
     // Build the app with a properly initialized MyApp
-    await tester.pumpWidget(
-      MyApp(
-        homePage: MyHomePage(),
-      ),
-    );
+    await tester.pumpWidget(const MyApp(homePage: MyHomePage()));
 
     // Ensure any async operations (like Firebase initialization) are completed.
     await tester.pumpAndSettle();

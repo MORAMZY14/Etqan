@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';
 import 'login_page.dart';
 import 'admin_login_page.dart';
@@ -26,7 +25,7 @@ void main() async {
     }
 
     // Initialize local notifications
-    await _initializeNotifications();
+
 
     // Run the app after Firebase and notifications are initialized
     runApp(MyApp(homePage: await getInitialPage()));
@@ -35,27 +34,6 @@ void main() async {
   }
 }
 
-Future<void> _initializeNotifications() async {
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-  final DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
-    requestSoundPermission: true,
-    requestBadgePermission: true,
-    requestAlertPermission: true,
-  );
-  final InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsIOS,
-  );
-
-  try {
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-    print('Notifications initialized successfully');
-  } catch (e) {
-    print('Error initializing notifications: $e');
-  }
-}
 Future<Widget> getInitialPage() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   bool rememberMe = prefs.getBool('rememberMe') ?? false;
@@ -90,7 +68,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   List<CustomListItem> items = [];
   final ScrollController _scrollController = ScrollController();
 
