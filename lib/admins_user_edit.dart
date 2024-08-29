@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AdminsUserEditPage extends StatelessWidget {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -73,14 +75,13 @@ class AdminsUserEditPage extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.delete, color: Colors.purple), // Change icon color to purple
               onPressed: () {
-                _showDeleteConfirmationDialog(context, userDoc.id);
+                _showDeleteConfirmationDialog(context, userDoc.id, userEmail);
               },
             ),
           ],
         ),
       ),
     );
-
   }
 
   void _showEditUserDialog(BuildContext context, DocumentSnapshot userDoc) {
@@ -90,7 +91,7 @@ class AdminsUserEditPage extends StatelessWidget {
     String userbranch = userData['branch'] as String? ?? '';
     String userphone = userData['phone'] as String? ?? '';
     String userstudentID = userData['StudentID'] as String? ?? '';
-    String useruniversity = userData['branch'] as String? ?? '';
+    String useruniversity = userData['university'] as String? ?? '';
 
     showDialog(
       context: context,
@@ -142,7 +143,15 @@ class AdminsUserEditPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                _updateUser(userDoc.id, nameController.text, emailController.text , branchController.text , phoneController.text , studentIDController.text , UniversityController.text);
+                _updateUser(
+                  userDoc.id,
+                  nameController.text,
+                  emailController.text,
+                  branchController.text,
+                  phoneController.text,
+                  studentIDController.text,
+                  UniversityController.text,
+                );
                 Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -153,14 +162,15 @@ class AdminsUserEditPage extends StatelessWidget {
     );
   }
 
-  void _updateUser(String userId, String name, String email , String branch , String phone , String studentID , String university) {
+  void _updateUser(
+      String userId, String name, String email, String branch, String phone, String studentID, String university) {
     _firestore.collection('Users').doc(userId).update({
       'name': name,
       'email': email,
-      'branch' : branch ,
-      'phone'  : phone ,
-      'studentID' : studentID ,
-      'university' : university,
+      'branch': branch,
+      'phone': phone,
+      'studentID': studentID,
+      'university': university,
     }).then((_) {
       print('User updated');
     }).catchError((error) {
@@ -168,7 +178,7 @@ class AdminsUserEditPage extends StatelessWidget {
     });
   }
 
-  void _showDeleteConfirmationDialog(BuildContext context, String userId) {
+  void _showDeleteConfirmationDialog(BuildContext context, String userId, String userEmail) {
     showDialog(
       context: context,
       builder: (context) {
@@ -184,7 +194,7 @@ class AdminsUserEditPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                _deleteUser(userId);
+                _deleteUser(userId, userEmail);
                 Navigator.of(context).pop();
               },
               child: Text('Delete'),
@@ -195,11 +205,27 @@ class AdminsUserEditPage extends StatelessWidget {
     );
   }
 
-  void _deleteUser(String userId) {
-    _firestore.collection('Users').doc(userId).delete().then((_) {
-      print('User deleted');
-    }).catchError((error) {
-      print('Failed to delete user: $error');
-    });
+  void _deleteUser(String userId, String userEmail) async {
+    // Delete user from Firestore
+    try {
+      await _firestore.collection('Users').doc(userId).delete();
+      print('User deleted from Firestore');
+    } catch (error) {
+      print('Failed to delete user from Firestore: $error');
+      return;
+    }
+
+    // Check if the user to be deleted is the currently signed-in user
+    User? currentUser = _auth.currentUser;
+    if (currentUser != null && currentUser.email == userEmail) {
+      try {
+        await currentUser.delete();
+        print('User deleted from Firebase Authentication');
+      } catch (error) {
+        print('Failed to delete user from Firebase Authentication: $error');
+      }
+    } else {
+      print('User is not currently signed in, cannot delete from Firebase Authentication');
+    }
   }
 }

@@ -3,17 +3,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'admins_user_edit.dart';
 import 'announcement_admin_page.dart';
 import 'bottom_bar_admin.dart';
 import 'admin_login_page.dart';
 import 'course_management_page.dart';
 import 'admin-settings_page.dart';
+import 'firebase_notifications.dart';
+
 
 class AdminPage extends StatefulWidget {
   final String email;
 
   const AdminPage({super.key, required this.email});
+
 
   @override
   _AdminPageState createState() => _AdminPageState();
@@ -22,6 +26,9 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  late String _fcmToken;
+
+
 
 
   String _userName = 'Loading...';
@@ -30,12 +37,14 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   int _selectedIndex = 0;
   late TabController _tabController;
 
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _initializeData();
     _activateAppCheck();
+
   }
 
   @override
@@ -55,22 +64,27 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
     }
   }
 
+
+
+
   Future<void> _activateAppCheck() async {
     try {
       await FirebaseAppCheck.instance.activate(
         androidProvider: AndroidProvider.playIntegrity,
         appleProvider: AppleProvider.deviceCheck,
       );
+      OneSignal.initialize("151302a4-82cd-4872-8135-4d15a4f43a83");
+      OneSignal.Notifications.requestPermission(true);
     } catch (e) {
       print('Error activating Firebase App Check: $e');
     }
   }
 
 
-
   Future<void> _fetchAdminData(String email) async {
     try {
-      final DocumentSnapshot doc = await _firestore.collection('Admins').doc(email).get();
+      final DocumentSnapshot doc = await _firestore.collection('Admins').doc(
+          email).get();
 
       if (doc.exists) {
         final String name = doc['name'] ?? '';
@@ -96,7 +110,8 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   }
 
   String _getFirstName(String fullName) {
-    return fullName.split(' ').firstWhere((part) => part.isNotEmpty, orElse: () => '');
+    return fullName.split(' ').firstWhere((part) => part.isNotEmpty,
+        orElse: () => '');
   }
 
   Future<void> _logout() async {
@@ -145,6 +160,8 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
     });
     _tabController.animateTo(index);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
