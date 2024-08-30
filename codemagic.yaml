@@ -7,6 +7,7 @@ workflows:
       xcode: latest
       vars:
         FLUTTER_VERSION: 3.24.0
+        DEVELOPMENT_TEAM: YOUR_TEAM_ID  # Replace with your actual development team ID
     scripts:
       - name: Install dependencies
         script: |
@@ -24,15 +25,6 @@ workflows:
       - name: Clean Flutter build
         script: |
           flutter clean
-      - name: Set "Build Libraries for Distribution" to "No"
-        script: |
-          cd ios
-          xcodebuild -project Runner.xcodeproj \
-                     -target Runner \
-                     -configuration Release \
-                     -destination 'generic/platform=iOS' \
-                     build \
-                     BUILD_LIBRARIES_FOR_DISTRIBUTION=NO
       - name: Build iOS
         script: |
           flutter build ios --release --no-codesign
