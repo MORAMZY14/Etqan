@@ -75,8 +75,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
       );
       OneSignal.initialize("151302a4-82cd-4872-8135-4d15a4f43a83");
 
-// The promptForPushNotificationsWithUserResponse function will show the iOS or Android push notification prompt. We recommend removing the following code and instead using an In-App Message to prompt for notification permission
-      OneSignal.Notifications.requestPermission(true);
+
 
     } catch (e) {
       print('Error activating Firebase App Check: $e');
