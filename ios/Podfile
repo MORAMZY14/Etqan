@@ -75,5 +75,7 @@ post_install do |installer|
     # Set Build Libraries for Distribution to No
     target.build_configurations.each do |config|
       config.build_settings['BUILD_LIBRARIES_FOR_DISTRIBUTION'] = 'NO'
+   end
   end
 end
+
