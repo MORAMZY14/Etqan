@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'admins_user_edit.dart';
 import 'announcement_admin_page.dart';
 import 'bottom_bar_admin.dart';
@@ -72,6 +73,10 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         androidProvider: AndroidProvider.playIntegrity,
         appleProvider: AppleProvider.deviceCheck,
       );
+      OneSignal.initialize("151302a4-82cd-4872-8135-4d15a4f43a83");
+
+// The promptForPushNotificationsWithUserResponse function will show the iOS or Android push notification prompt. We recommend removing the following code and instead using an In-App Message to prompt for notification permission
+      OneSignal.Notifications.requestPermission(true);
 
     } catch (e) {
       print('Error activating Firebase App Check: $e');
