@@ -31,9 +31,20 @@ android {
         versionName flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            keyAlias 'my-key-alias' // Replace with your key alias
+            keyPassword '141414' // Replace with your key password
+            storeFile file('G:\\Etqan\\Version\\Last\\etqan-main\\etqan-main\\Etqan\\my-release-key.jks') // Replace with the path to your keystore file
+            storePassword '141414' // Replace with your keystore password
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release // Apply the signing configuration
+            minifyEnabled false  // Disable minification
+            shrinkResources false  // Optional: Disable resource shrinking
         }
     }
 }

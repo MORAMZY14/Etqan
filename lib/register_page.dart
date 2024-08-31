@@ -87,7 +87,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final User? user = _firebaseAuth.currentUser;
     if (user != null) {
       final String userEmail = user.email!;
-      final String studentID = await _generateStudentID();
+      final String studentID = _generateStudentID();
       final newUser = {
         'email': userEmail,
         'name': _nameController.text.trim(),
@@ -126,21 +126,13 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<String> _generateStudentID() async {
-    // Fetch the last adminID from Firestore
-    final QuerySnapshot snapshot = await _firestore
-        .collection('Users')
-        .orderBy('studentID', descending: true)
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isEmpty) {
-      return '20240001'; // Start with 202401 if there are no admins yet
-    } else {
-      final lastStudentID = snapshot.docs.first.get('studentID');
-      final nextStudentID = int.parse(lastStudentID) + 1;
-      return nextStudentID.toString();
-    }
+  String _generateStudentID() {
+    const String allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final Random random = Random();
+    return String.fromCharCodes(Iterable.generate(
+      6,
+          (_) => allowedChars.codeUnitAt(random.nextInt(allowedChars.length)),
+    ));
   }
 
   @override

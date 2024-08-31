@@ -1,7 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'admin_login_page.dart';
 import 'login_page.dart';
 
 class RegisterAdminPage extends StatefulWidget {
@@ -87,7 +87,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
     final User? user = _firebaseAuth.currentUser;
     if (user != null) {
       final String userEmail = user.email!;
-      final String adminID = await _generateAdminID();
+      final String DoctorID = _generateDoctorID();
       final newUser = {
         'email': userEmail,
         'name': _nameController.text.trim(),
@@ -96,7 +96,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
         'university': _universityController.text.trim(),
         'branch': _branchController.text.trim(),
         'username': _usernameController.text.trim(),
-        'adminID': adminID,
+        'studentID': DoctorID,
         'status': 'Pending',
         'paymentstatus': 'Pending',
       };
@@ -114,7 +114,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => const AdminLoginPage()),
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
                   );
                 },
                 child: const Text('OK'),
@@ -126,21 +126,13 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
     }
   }
 
-  Future<String> _generateAdminID() async {
-    // Fetch the last adminID from Firestore
-    final QuerySnapshot snapshot = await _firestore
-        .collection('Admins')
-        .orderBy('adminID', descending: true)
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isEmpty) {
-      return '202401'; // Start with 202401 if there are no admins yet
-    } else {
-      final lastAdminID = snapshot.docs.first.get('adminID');
-      final nextAdminID = int.parse(lastAdminID) + 1;
-      return nextAdminID.toString();
-    }
+  String _generateDoctorID() {
+    const String allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final Random random = Random();
+    return String.fromCharCodes(Iterable.generate(
+      6,
+          (_) => allowedChars.codeUnitAt(random.nextInt(allowedChars.length)),
+    ));
   }
 
   @override

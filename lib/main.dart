@@ -11,28 +11,23 @@ import 'register_page.dart';
 import 'tour_page.dart';
 import 'about_page.dart';
 import 'user_page.dart';
-import 'firebase_notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-
-  // Initialize Firebase
   try {
+    // Initialize Firebase
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
 
-    // Initialize local notifications
-
-
-    // Run the app after Firebase and notifications are initialized
+    // Run the app after Firebase is initialized
     runApp(MyApp(homePage: await getInitialPage()));
   } catch (e) {
-    print('Error initializing Firebase or notifications: $e');
+    print('Error initializing Firebase: $e');
   }
 }
 

@@ -7,7 +7,6 @@ workflows:
       xcode: latest
       vars:
         FLUTTER_VERSION: 3.24.0
-        DEVELOPMENT_TEAM: YOUR_TEAM_ID  # Replace with your actual development team ID
     scripts:
       - name: Install dependencies
         script: |
