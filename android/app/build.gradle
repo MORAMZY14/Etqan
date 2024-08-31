@@ -35,7 +35,7 @@ android {
         release {
             keyAlias 'my-key-alias' // Replace with your key alias
             keyPassword '141414' // Replace with your key password
-            storeFile file('G:\\Etqan\\Version\\Last\\etqan-main\\etqan-main\\Etqan\\my-release-key.jks') // Replace with the path to your keystore file
+            storeFile file('G:/Etqan/Version/Last/etqan-main/etqan-main/Etqan/my-release-key.jks')
             storePassword '141414' // Replace with your keystore password
         }
     }
