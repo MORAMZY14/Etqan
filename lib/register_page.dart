@@ -1,4 +1,5 @@
-import 'dart:html' as html;
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -242,23 +243,17 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _pickImage() async {
-    final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
-    uploadInput.accept = 'image/*';
-    uploadInput.click();
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
 
-    uploadInput.onChange.listen((e) async {
-      final files = uploadInput.files;
-      if (files!.isEmpty) return;
-
-      final reader = html.FileReader();
-      reader.readAsArrayBuffer(files[0]!);
-      reader.onLoadEnd.listen((e) {
-        final uint8List = reader.result as Uint8List;
+    if (result != null) {
+      PlatformFile file = result.files.first;
+      final imageBytes = file.bytes;
+      if (imageBytes != null) {
         setState(() {
-          _selectedImageBytes = uint8List;
+          _selectedImageBytes = imageBytes;
         });
-      });
-    });
+      }
+    }
   }
 
   @override
