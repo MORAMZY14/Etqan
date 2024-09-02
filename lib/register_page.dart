@@ -160,7 +160,7 @@ class _RegisterPageState extends State<RegisterPage> {
               title: const Text('Agreement License and Rules'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.8,
-                height: MediaQuery.of(context).size.height * 0.8,
+                height: MediaQuery.of(context).size.height * 0.6,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -268,7 +268,7 @@ class _RegisterPageState extends State<RegisterPage> {
       body: Center(
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
-          padding: const EdgeInsets.all(20.0),
+          padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.05),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15.0),
@@ -294,113 +294,84 @@ class _RegisterPageState extends State<RegisterPage> {
                             ? MemoryImage(_selectedImageBytes!)
                             : null,
                         child: _selectedImageBytes == null
-                            ? const Icon(
-                          Icons.camera_alt,
-                          color: Colors.grey,
-                          size: 50,
-                        )
+                            ? const Icon(Icons.person, size: 50, color: Colors.grey)
                             : null,
                       ),
                       Positioned(
                         bottom: 0,
                         right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.teal),
-                          onPressed: _pickImage,
+                        child: GestureDetector(
+                          onTap: _pickImage,
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.teal,
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _buildTextField(_nameController, 'Name'),
-                const SizedBox(height: 16),
-                _buildTextField(_emailController, 'Email', emailValidation: true),
+                const SizedBox(height: 20),
+                _buildTextField(_emailController, 'Email', TextInputType.emailAddress, Icons.email),
                 if (!_isGmail)
-                  const Text(
-                    'Please use a Gmail address.',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  _passwordController,
-                  'Password',
-                  obscureText: _obscurePassword,
-                  toggleVisibility: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  _confirmPasswordController,
-                  'Confirm Password',
-                  obscureText: _obscureConfirmPassword,
-                  toggleVisibility: () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                    });
-                  },
-                ),
-                if (!_passwordsMatch)
-                  const Text(
-                    'Passwords do not match.',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedDialCode,
-                        items: ['+20', '+966', '+44', '+33', '+49', '+81', '+86']
-                            .map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedDialCode = newValue!;
-                          });
-                        },
-                        decoration: InputDecoration(
-                          labelText: 'Country Code',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[200],
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5.0),
+                    child: Text(
+                      'Please use a Gmail address.',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: MediaQuery.of(context).size.width * 0.035,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: _buildTextField(_phoneController, 'WhatsApp Number'),
+                  ),
+                const SizedBox(height: 20),
+                _buildTextField(_nameController, 'Name', TextInputType.name, Icons.person),
+                const SizedBox(height: 20),
+                _buildPasswordField(_passwordController, 'Password', Icons.lock, _obscurePassword,
+                        () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    }),
+                if (!_passwordsMatch)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5.0),
+                    child: Text(
+                      'Passwords do not match.',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: MediaQuery.of(context).size.width * 0.035,
+                      ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(_universityController, 'University'),
-                const SizedBox(height: 16),
-                _buildTextField(_branchController, 'Branch'),
-                const SizedBox(height: 32),
-                ElevatedButton(
+                  ),
+                const SizedBox(height: 20),
+                _buildPasswordField(_confirmPasswordController, 'Confirm Password', Icons.lock,
+                    _obscureConfirmPassword, () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    }),
+                const SizedBox(height: 20),
+                _buildTextField(
+                    _phoneController, 'Phone Number', TextInputType.phone, Icons.phone),
+                const SizedBox(height: 20),
+                _buildTextField(_universityController, 'University', TextInputType.text,
+                    Icons.school),
+                const SizedBox(height: 20),
+                _buildTextField(_branchController, 'Branch', TextInputType.text, Icons.business),
+                const SizedBox(height: 20),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
                   onPressed: _isRegisterButtonEnabled ? _registerUser : null,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
+                    padding: EdgeInsets.symmetric(
+                      vertical: MediaQuery.of(context).size.height * 0.02,
                     ),
-                    backgroundColor: Colors.teal,
+                    backgroundColor: _isRegisterButtonEnabled ? Colors.teal : Colors.grey,
                   ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Register', style: TextStyle(fontSize: 18)),
+                  child: const Text('Register'),
                 ),
               ],
             ),
@@ -410,31 +381,37 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label,
-      {bool obscureText = false, bool emailValidation = false, VoidCallback? toggleVisibility}) {
+  Widget _buildTextField(TextEditingController controller, String label, TextInputType type,
+      IconData icon) {
     return TextField(
       controller: controller,
+      keyboardType: type,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: Icon(icon),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10.0),
-          borderSide: BorderSide.none,
         ),
-        filled: true,
-        fillColor: Colors.grey[200],
-        suffixIcon: obscureText
-            ? IconButton(
-          icon: Icon(
-              toggleVisibility != null && obscureText
-                  ? Icons.visibility_off
-                  : Icons.visibility,
-              color: Colors.grey),
-          onPressed: toggleVisibility,
-        )
-            : null,
       ),
+    );
+  }
+
+  Widget _buildPasswordField(TextEditingController controller, String label, IconData icon,
+      bool obscureText, VoidCallback onToggle) {
+    return TextField(
+      controller: controller,
       obscureText: obscureText,
-      keyboardType: emailValidation ? TextInputType.emailAddress : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: IconButton(
+          icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
+          onPressed: onToggle,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+      ),
     );
   }
 }
