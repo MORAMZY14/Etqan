@@ -38,7 +38,9 @@ jobs:
         run: flutter clean
 
       - name: Build APK
-        run: flutter build apk --release -v -Dorg.gradle.caching=false
+        run: |
+          export ORG_GRADLE_CACHING=false
+          flutter build apk --release -v
 
       - name: Update CocoaPods
         run: pod repo update
