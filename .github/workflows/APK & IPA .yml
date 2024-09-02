@@ -37,6 +37,9 @@ jobs:
       - name: Clean build directory
         run: flutter clean
 
+      - name: Set environment variable for keystore
+        run: echo "KEYSTORE_PATH=$PWD/android/app/my-release-key.jks" >> $GITHUB_ENV
+
       - name: Build APK
         run: |
           export ORG_GRADLE_CACHING=false
