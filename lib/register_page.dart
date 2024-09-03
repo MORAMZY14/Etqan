@@ -266,7 +266,7 @@ class _RegisterPageState extends State<RegisterPage> {
         backgroundColor: Colors.grey[200],
     body: Center(
     child: Container(
-    width: MediaQuery.of(context).size.width * 0.8,
+    width: MediaQuery.of(context).size.width * 0.9,
     height: MediaQuery.of(context).size.height * 0.75,
     padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
     decoration: BoxDecoration(
