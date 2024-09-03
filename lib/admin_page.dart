@@ -389,7 +389,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
                   MaterialPageRoute(builder: (context) =>   AnnouncementsPage()),
                 );
               }),
-              _buildCategoryButton('Grades', Icons.grade, Colors.green, () {}),
+              _buildCategoryButton('Approval', Icons.check, Colors.green, () {}),
             ],
           ),
           const SizedBox(height: 10),
