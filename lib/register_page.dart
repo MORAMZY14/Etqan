@@ -248,27 +248,28 @@ class _RegisterPageState extends State<RegisterPage> {
     if (result != null) {
       PlatformFile file = result.files.first;
       final imageBytes = file.bytes;
-
       if (imageBytes != null) {
         setState(() {
           _selectedImageBytes = imageBytes;
         });
       }
-    } else {
-      // Handle case when no image is picked
-      print('No image selected.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.grey[200],
+        backgroundColor:  Colors.grey[200],
+        appBar: AppBar(
+        title: const Text('Register'),
+    backgroundColor: Colors.grey[200],
+    elevation:0,
+    ),
     body: Center(
     child: Container(
-    width: MediaQuery.of(context).size.width * 0.9,
-    height: MediaQuery.of(context).size.height * 0.8,
-    padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+    width: MediaQuery.of(context).size.width * 0.78,
+    height: MediaQuery.of(context).size.height * 0.75,
+    padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.030),
     decoration: BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(15.0),
@@ -304,7 +305,7 @@ class _RegisterPageState extends State<RegisterPage> {
     onTap: _pickImage,
     child: CircleAvatar(
     radius: 20,
-    backgroundColor: Colors.blue,
+    backgroundColor: Colors.teal,
     child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
     ),
     ),
@@ -404,15 +405,15 @@ class _RegisterPageState extends State<RegisterPage> {
     padding: EdgeInsets.symmetric(
     vertical: MediaQuery.of(context).size.height * 0.02,
     ),
-    backgroundColor: _isRegisterButtonEnabled ? Colors.blue : Colors.grey,
+    backgroundColor: _isRegisterButtonEnabled ? Colors.teal : Colors.grey,
     ),
     child: const Text('Register'),
     ),
     ],
     ),
     ),
-     ),
-     ));
+    ),
+    ));
   }
 
 
