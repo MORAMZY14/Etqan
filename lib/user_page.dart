@@ -24,6 +24,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
 
   String _userName = 'Loading...';
   String _studentId = 'Loading...';
+  String? _profileImageUrl;
   List<CustomListItem> _items = [];
   Map<String, String> _courseImages = {};
   bool _isLoading = true;
@@ -51,6 +52,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         _fetchUserData(widget.email),
         _fetchCoursesFromFirestore(),
         _fetchCourseImagesFromStorage(),
+        _fetchUserProfileImage(widget.email), // Fetch user's profile image
       ]);
     } catch (e) {
       print('Error initializing data: $e');
@@ -92,6 +94,21 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       setState(() {
         _userName = 'Error';
         _studentId = 'N/A';
+      });
+    }
+  }
+
+  Future<void> _fetchUserProfileImage(String email) async {
+    try {
+      final String profileImagePath = 'users/$email/profile_picture.png'; // Assumes profile image is named 'profile.png'
+      final String profileImageUrl = await _storage.ref(profileImagePath).getDownloadURL();
+      setState(() {
+        _profileImageUrl = profileImageUrl;
+      });
+    } catch (e) {
+      print('Error fetching user profile image: $e');
+      setState(() {
+        _profileImageUrl = null; // Set to null if there's an error
       });
     }
   }
@@ -232,6 +249,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
 
     return SingleChildScrollView(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTopSection(isSmallScreen),
           const SizedBox(height: 20),
@@ -261,7 +279,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
                 );
               },
             ),
-            const SizedBox(height: 16), // Add space between buttons
+            const SizedBox(height: 16),
             _buildModernButton(
               icon: Icons.delete,
               color: Colors.red,
@@ -270,7 +288,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
                 _deleteCourse();
               },
             ),
-            const SizedBox(height: 16), // Add space between buttons
+            const SizedBox(height: 16),
             _buildModernButton(
               icon: Icons.list,
               color: Colors.green,
@@ -296,95 +314,42 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     required VoidCallback onPressed,
   }) {
     return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(label, style: const TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: color, // Background color
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        backgroundColor: color,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-      ),
-      icon: Icon(icon, size: 24),
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      onPressed: onPressed,
-    );
-  }
-
-  Widget _buildIconButton({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(icon, size: 40, color: color),
-          onPressed: onPressed,
-        ),
-        Text(label, style: const TextStyle(fontSize: 16)),
-      ],
-    );
-  }
-
-// Placeholder methods for actions
-  void _deleteCourse() {
-    // Implement the logic to delete a course
-  }
-
-  void _showAllCourses() {
-    // Implement the logic to show all courses
-  }
-
-  Widget _buildProfilePage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.rate_review_rounded, size: 40, color: Colors.blue),
-            onPressed: () {
-              // Navigate to course review page
-            },
-          ),
-          const SizedBox(height: 10),
-          const Text('Review Courses', style: TextStyle(fontSize: 24)),
-        ],
+        elevation: 4,
       ),
     );
   }
 
   Widget _buildTopSection(bool isSmallScreen) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 20 : 40,
-        vertical: isSmallScreen ? 30 : 50,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF160E30), // Purple background
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/login1.png'), // Background image
+          fit: BoxFit.cover,
+        ),
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(30),
+          bottom: Radius.circular(30), // Adjust the radius as needed
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreetingAndNotificationIcon(isSmallScreen),
-          const SizedBox(height: 20),
-          Text(
-            'Find your favorite Course here!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: isSmallScreen ? 24 : 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildSearchBar(isSmallScreen),
-        ],
+      padding: const EdgeInsets.all(20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(30), // Ensure the content respects the border radius
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildGreetingAndNotificationIcon(isSmallScreen),
+          ],
+        ),
       ),
     );
   }
@@ -397,14 +362,16 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
           children: [
             CircleAvatar(
               radius: isSmallScreen ? 25 : 30,
-              backgroundImage: const AssetImage('assets/etqan.png'),
+              backgroundImage: _profileImageUrl != null
+                  ? NetworkImage(_profileImageUrl!)
+                  : const AssetImage('assets/etqan.png') as ImageProvider,
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello,$_userName',
+                  'Hello, $_userName',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isSmallScreen ? 18 : 24,
@@ -433,68 +400,61 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildSearchBar(bool isSmallScreen) {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-      ),
+  Widget _buildCategoryButtons(bool isSmallScreen) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Icon(Icons.search),
+          _buildCategoryButton(
+            'All',
+            isSmallScreen,
+            Icons.all_inclusive,
+                () => _fetchCoursesFromFirestore(),
           ),
-          Expanded(
-            child: TextField(
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Search your course...',
-              ),
-              onSubmitted: (query) {
-                // Implement search functionality
-              },
-            ),
+          const SizedBox(width: 10),
+          _buildCategoryButton(
+            'Popular',
+            isSmallScreen,
+            Icons.star,
+                () => _fetchCoursesFromFirestore(status: 'popular'),
+          ),
+          const SizedBox(width: 10),
+          _buildCategoryButton(
+            'New',
+            isSmallScreen,
+            Icons.new_releases,
+                () => _fetchCoursesFromFirestore(status: 'new'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryButtons(bool isSmallScreen) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildCategoryButton(
-          label: 'All',
-          onPressed: () => _fetchCoursesFromFirestore(),
-        ),
-        _buildCategoryButton(
-          label: 'Popular',
-          onPressed: () => _fetchCoursesFromFirestore(status: 'popular'),
-        ),
-        _buildCategoryButton(
-          label: 'New',
-          onPressed: () => _fetchCoursesFromFirestore(status: 'new'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryButton({required String label, required VoidCallback onPressed}) {
-    return ElevatedButton(
+  Widget _buildCategoryButton(
+      String label,
+      bool isSmallScreen,
+      IconData icon,
+      VoidCallback onPressed,
+      ) {
+    return ElevatedButton.icon(
       onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: isSmallScreen ? 14 : 18,
+          color: Colors.white,
+        ),
+      ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF160E30), // Purple background
+        padding: EdgeInsets.symmetric(
+          vertical: isSmallScreen ? 10 : 15,
+          horizontal: isSmallScreen ? 15 : 20,
+        ),
+        backgroundColor: Colors.blueAccent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(30),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 16),
       ),
     );
   }
@@ -504,96 +464,92 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
             'Trending Courses',
             style: TextStyle(
-              fontSize: isSmallScreen ? 20 : 28,
+              fontSize: isSmallScreen ? 20 : 24,
               fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
         ),
         const SizedBox(height: 10),
-        _items.isEmpty
-            ? Padding(
-          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
-          child: Text(
-            'No courses found',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 16 : 20,
-              color: Colors.grey,
-            ),
-          ),
-        )
-            : _buildCoursesList(isSmallScreen),
-      ],
-    );
-  }
-
-  Widget _buildCoursesList(bool isSmallScreen) {
-    return SizedBox(
-      height: isSmallScreen ? 200 : 250,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          final courseImage = _courseImages[item.name] ?? 'https://example.com/placeholder.png';
-
-          return GestureDetector(
-            onTap: () {
-              // Navigate to CourseDetailedPage with item details
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CourseDetailedPage(
-                    courseName: item.name,
-                    courseImage: courseImage, courseDescription: '', imageUrl: '', courseImageUrl: '',
+        SizedBox(
+          height: isSmallScreen ? 200 : 250,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _items.length,
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              final imageUrl = _courseImages[item.name] ?? 'https://example.com/placeholder.png';
+              return GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CourseDetailedPage(
+                      courseName: item.name,
+                      courseDescription: '',
+                      courseImageUrl: '',
+                      courseImage: '',
+                      imageUrl: imageUrl,
+                    ),
                   ),
                 ),
-              );
-            },
-            child: Container(
-              width: isSmallScreen ? 160 : 200,
-              margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 10 : 15),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                image: DecorationImage(
-                  image: NetworkImage(courseImage),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                child: Container(
+                  width: isSmallScreen ? 140 : 180,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    image: DecorationImage(
+                      image: NetworkImage(imageUrl),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 10 : 15),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(20),
-                        ),
-                      ),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      color: Colors.black.withOpacity(0.5),
                       child: Text(
                         item.name,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: isSmallScreen ? 14 : 18,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfilePage() {
+    return const Center(
+      child: Text(
+        'Profile Page',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
       ),
     );
+  }
+
+  Future<void> _showAllCourses() async {
+    try {
+      await _fetchCoursesFromFirestore();
+    } catch (e) {
+      print('Error showing all courses: $e');
+    }
+  }
+
+  Future<void> _deleteCourse() async {
+    // Add logic to delete a course
   }
 }
 
@@ -601,5 +557,8 @@ class CustomListItem {
   final String name;
   final String content;
 
-  CustomListItem({required this.name, required this.content});
+  CustomListItem({
+    required this.name,
+    required this.content,
+  });
 }
