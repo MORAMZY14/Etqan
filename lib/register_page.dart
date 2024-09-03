@@ -259,162 +259,168 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor:  Colors.grey[200],
-        appBar: AppBar(
+      backgroundColor: Colors.grey[200],
+      appBar: AppBar(
         title: const Text('Register'),
-    backgroundColor: Colors.grey[200],
-    elevation:0,
-    ),
-    body: Center(
-    child: Container(
-    width: MediaQuery.of(context).size.width * 0.78,
-    height: MediaQuery.of(context).size.height * 0.75,
-    padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.030),
-    decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(15.0),
-    boxShadow: [
-    BoxShadow(
-    color: Colors.grey.withOpacity(0.3),
-    blurRadius: 10.0,
-    offset: const Offset(0, 5),
-    ),
-    ],
-    ),
-    child: SingleChildScrollView(
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-    Center(
-    child: Stack(
-    children: [
-    CircleAvatar(
-    radius: 50,
-    backgroundColor: Colors.grey[300],
-    backgroundImage: _selectedImageBytes != null
-    ? MemoryImage(_selectedImageBytes!)
-        : null,
-    child: _selectedImageBytes == null
-    ? const Icon(Icons.person, size: 40, color: Colors.grey)
-        : null,
-    ),
-    Positioned(
-    bottom: 0,
-    right: 0,
-    child: GestureDetector(
-    onTap: _pickImage,
-    child: CircleAvatar(
-    radius: 20,
-    backgroundColor: Colors.teal,
-    child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-    ),
-    ),
-    ),
-    ],
-    ),
-    ),
-    const SizedBox(height: 15),
-    _buildTextField(_emailController, 'Email', TextInputType.emailAddress, Icons.email),
-    if (!_isGmail)
-    Padding(
-    padding: const EdgeInsets.only(top: 5.0),
-    child: Text(
-    'Please use a Gmail address.',
-    style: TextStyle(
-    color: Colors.red,
-    fontSize: MediaQuery.of(context).size.width * 0.015,
-    ),
-    ),
-    ),
-    const SizedBox(height: 15),
-    _buildTextField(_nameController, 'Name', TextInputType.name, Icons.person),
-    const SizedBox(height: 15),
-    _buildPasswordField(_passwordController, 'Password', Icons.lock, _obscurePassword, () {
-    setState(() {
-    _obscurePassword = !_obscurePassword;
-    });
-    }),
-    if (!_passwordsMatch)
-    Padding(
-    padding: const EdgeInsets.only(top: 5.0),
-    child: Text(
-    'Passwords do not match.',
-    style: TextStyle(
-    color: Colors.red,
-    fontSize: MediaQuery.of(context).size.width * 0.015,
-    ),
-    ),
-    ),
-    const SizedBox(height: 15),
-    _buildPasswordField(_confirmPasswordController, 'Confirm Password', Icons.lock, _obscureConfirmPassword, () {
-    setState(() {
-    _obscureConfirmPassword = !_obscureConfirmPassword;
-    });
-    }),
-    const SizedBox(height: 15),
-    // Phone number and country code input
-    Row(
-    children: [
-    // Country code dropdown
-    Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-    border: Border.all(color: Colors.grey),
-    borderRadius: BorderRadius.circular(10),
-    ),
-    child: DropdownButtonHideUnderline(
-    child: DropdownButton<String>(
-    value: _selectedDialCode,
-    items: <String>['+20', '+1', '+44', '+91'] // Add more dial codes as needed
-        .map<DropdownMenuItem<String>>((String value) {
-    return DropdownMenuItem<String>(
-    value: value,
-    child: Text(value),
+        centerTitle : true ,
+        backgroundColor: Colors.grey[200],
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 120.0), // Add padding to move the container down
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.78,
+            height: MediaQuery.of(context).size.height * 0.74,
+            padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.028),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  blurRadius: 10.0,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: _selectedImageBytes != null
+                              ? MemoryImage(_selectedImageBytes!)
+                              : null,
+                          child: _selectedImageBytes == null
+                              ? const Icon(Icons.person, size: 40, color: Colors.grey)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _pickImage,
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Colors.teal,
+                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildTextField(_emailController, 'Email', TextInputType.emailAddress, Icons.email),
+                  if (!_isGmail)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5.0),
+                      child: Text(
+                        'Please use a Gmail address.',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: MediaQuery.of(context).size.width * 0.015,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 15),
+                  _buildTextField(_nameController, 'Name', TextInputType.name, Icons.person),
+                  const SizedBox(height: 15),
+                  _buildPasswordField(_passwordController, 'Password', Icons.lock, _obscurePassword, () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  }),
+                  if (!_passwordsMatch)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5.0),
+                      child: Text(
+                        'Passwords do not match.',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: MediaQuery.of(context).size.width * 0.015,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 15),
+                  _buildPasswordField(_confirmPasswordController, 'Confirm Password', Icons.lock, _obscureConfirmPassword, () {
+                    setState(() {
+                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                    });
+                  }),
+                  const SizedBox(height: 15),
+                  // Phone number and country code input
+                  Row(
+                    children: [
+                      // Country code dropdown
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedDialCode,
+                            items: <String>['+20', '+1', '+44', '+91'] // Add more dial codes as needed
+                                .map<DropdownMenuItem<String>>((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedDialCode = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Phone number text field
+                      Expanded(
+                        child: _buildTextField(
+                          _phoneController,
+                          'Phone Number',
+                          TextInputType.phone,
+                          Icons.phone,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  _buildTextField(_universityController, 'University', TextInputType.text, Icons.school),
+                  const SizedBox(height: 15),
+                  _buildTextField(_branchController, 'Branch', TextInputType.text, Icons.business),
+                  const SizedBox(height: 15),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                    onPressed: _isRegisterButtonEnabled ? _registerUser : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        vertical: MediaQuery.of(context).size.height * 0.02,
+                      ),
+                      backgroundColor: _isRegisterButtonEnabled ? Colors.teal : Colors.grey,
+                    ),
+                    child: const Text('Register'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
-    }).toList(),
-    onChanged: (String? newValue) {
-    setState(() {
-    _selectedDialCode = newValue!;
-    });
-    },
-    ),
-    ),
-    ),
-    const SizedBox(width: 10),
-    // Phone number text field
-    Expanded(
-    child: _buildTextField(
-    _phoneController,
-    'Phone Number',
-    TextInputType.phone,
-    Icons.phone,
-    ),
-    ),
-    ],
-    ),
-    const SizedBox(height: 15),
-    _buildTextField(_universityController, 'University', TextInputType.text, Icons.school),
-    const SizedBox(height: 15),
-    _buildTextField(_branchController, 'Branch', TextInputType.text, Icons.business),
-    const SizedBox(height: 15),
-    _isLoading
-    ? const Center(child: CircularProgressIndicator())
-        : ElevatedButton(
-    onPressed: _isRegisterButtonEnabled ? _registerUser : null,
-    style: ElevatedButton.styleFrom(
-    padding: EdgeInsets.symmetric(
-    vertical: MediaQuery.of(context).size.height * 0.02,
-    ),
-    backgroundColor: _isRegisterButtonEnabled ? Colors.teal : Colors.grey,
-    ),
-    child: const Text('Register'),
-    ),
-    ],
-    ),
-    ),
-    ),
-    ));
   }
+
 
 
   Widget _buildTextField(TextEditingController controller, String label, TextInputType type,
