@@ -34,8 +34,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Clean build directory
+        run: flutter clean
+
+      - name: Set environment variable for keystore
+        run: echo "KEYSTORE_PATH=$PWD/android/app/my-release-key.jks" >> $GITHUB_ENV
+
       - name: Build APK
-        run: flutter build apk --release -v
+        run: |
+          export ORG_GRADLE_CACHING=false
+          flutter build apk --release -v
 
       - name: Update CocoaPods
         run: pod repo update
