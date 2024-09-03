@@ -1,4 +1,4 @@
-# etqan
+# Etqan-Center
 
 Educational Project.
 
