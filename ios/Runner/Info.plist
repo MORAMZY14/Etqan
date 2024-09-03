@@ -55,5 +55,7 @@
 		<string>We need access to your photo library to allow you to select images.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>We need access to your camera to allow you to take photos.</string>
+
+
 	</dict>
 </plist>
