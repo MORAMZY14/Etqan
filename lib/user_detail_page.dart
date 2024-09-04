@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:contacts_service/contacts_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -35,7 +37,6 @@ class UserDetailsPage extends StatelessWidget {
           final phoneNumber = userData['phone'] ?? '';
           final whatsappNumber = userData['whatsapp'] ?? phoneNumber;
 
-          // Ensure numbers are in correct format
           final fullPhoneNumber = '$dialCode$phoneNumber'.replaceAll(' ', '');
           final fullWhatsAppNumber = '$dialCode$whatsappNumber'.replaceAll(' ', '');
 
@@ -98,6 +99,60 @@ class UserDetailsPage extends StatelessWidget {
                         },
                         icon: const Icon(Icons.phone, color: Colors.white),
                         label: const Text('Call'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // Request contact permissions
+                          final status = await Permission.contacts.request();
+                          if (status.isGranted) {
+                            final newContact = Contact(
+                              givenName: userData['name'],
+                              phones: [Item(label: 'mobile', value: fullPhoneNumber)],
+                              emails: [Item(label: 'email', value: userData['email'])],
+                            );
+                            await ContactsService.addContact(newContact);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text('Contact saved successfully!'),
+                            ));
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text('Permission to save contact was denied.'),
+                            ));
+                          }
+                        },
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        label: const Text('Save Contact'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final email = userData['email'];
+                          final subject = Uri.encodeComponent('Frequently Asked Questions');
+                          final body = Uri.encodeComponent('Dear ${userData['name']},\n\nHere are some frequently asked questions...');
+
+                          final emailUrl = 'mailto:$email?subject=$subject&body=$body';
+
+                          if (await canLaunchUrl(Uri.parse(emailUrl))) {
+                            await launchUrl(Uri.parse(emailUrl));
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text('Could not open email app.'),
+                            ));
+                          }
+                        },
+                        icon: const Icon(Icons.mail_outline, color: Colors.white),
+                        label: const Text('Send FAQ'),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                       ),
                     ),
