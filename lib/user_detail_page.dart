@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:contacts_service/contacts_service.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -16,6 +14,12 @@ class UserDetailsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('User Details'),
         backgroundColor: Colors.teal,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => _showFAQDialog(context),
+          ),
+        ],
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('Users').doc(userId).get(),
@@ -58,8 +62,8 @@ class UserDetailsPage extends StatelessWidget {
                     if (await canLaunchUrl(Uri.parse(url))) {
                       await launchUrl(Uri.parse(url));
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: const Text('Could not open dialer.'),
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Could not open dialer.'),
                       ));
                     }
                   },
@@ -74,8 +78,8 @@ class UserDetailsPage extends StatelessWidget {
                           if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
                             await launchUrl(Uri.parse(whatsappUrl));
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text('Could not open WhatsApp.'),
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('Could not open WhatsApp.'),
                             ));
                           }
                         },
@@ -92,8 +96,8 @@ class UserDetailsPage extends StatelessWidget {
                           if (await canLaunchUrl(Uri.parse(callUrl))) {
                             await launchUrl(Uri.parse(callUrl));
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text('Could not open dialer.'),
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('Could not open dialer.'),
                             ));
                           }
                         },
@@ -104,65 +108,76 @@ class UserDetailsPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          // Request contact permissions
-                          final status = await Permission.contacts.request();
-                          if (status.isGranted) {
-                            final newContact = Contact(
-                              givenName: userData['name'],
-                              phones: [Item(label: 'mobile', value: fullPhoneNumber)],
-                              emails: [Item(label: 'email', value: userData['email'])],
-                            );
-                            await ContactsService.addContact(newContact);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text('Contact saved successfully!'),
-                            ));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text('Permission to save contact was denied.'),
-                            ));
-                          }
-                        },
-                        icon: const Icon(Icons.save, color: Colors.white),
-                        label: const Text('Save Contact'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final email = userData['email'];
-                          final subject = Uri.encodeComponent('Frequently Asked Questions');
-                          final body = Uri.encodeComponent('Dear ${userData['name']},\n\nHere are some frequently asked questions...');
-
-                          final emailUrl = 'mailto:$email?subject=$subject&body=$body';
-
-                          if (await canLaunchUrl(Uri.parse(emailUrl))) {
-                            await launchUrl(Uri.parse(emailUrl));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text('Could not open email app.'),
-                            ));
-                          }
-                        },
-                        icon: const Icon(Icons.mail_outline, color: Colors.white),
-                        label: const Text('Send FAQ'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    // Launch native contacts app with pre-filled data (this URL scheme varies by platform)
+                    final contactUrl = Uri.encodeFull(
+                        'content://contacts/people/?name=${userData['name']}&phone=$fullPhoneNumber'
+                    );
+                    if (await canLaunchUrl(Uri.parse(contactUrl))) {
+                      await launchUrl(Uri.parse(contactUrl));
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open contacts app.')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.contact_page, color: Colors.white),
+                  label: const Text('Save Contact'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                 ),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  void _showFAQDialog(BuildContext context) {
+    final faqOptions = [
+      {'label': 'Price List', 'message': 'Here is our price list...'},
+      {'label': 'Groups', 'message': 'Here is the information about groups...'},
+      {'label': 'Sample', 'message': 'Here is a sample...'},
+      {'label': 'Links', 'message': 'Here are some important links...'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Frequently Asked Questions'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: faqOptions.map((option) {
+              return ListTile(
+                title: Text(option['label']!),
+                trailing: IconButton(
+                  icon: const Icon(FontAwesomeIcons.whatsapp, color: Colors.teal),
+                  onPressed: () async {
+                    final message = Uri.encodeComponent(option['message']!);
+                    final whatsappUrl = 'https://wa.me/?text=$message';
+                    if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+                      await launchUrl(Uri.parse(whatsappUrl));
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Could not open WhatsApp.'),
+                      ));
+                    }
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
     );
   }
 

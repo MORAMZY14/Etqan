@@ -53,7 +53,8 @@ class _RegisterPageState extends State<RegisterPage> {
   void _checkFields() {
     setState(() {
       _isGmail = _emailController.text.endsWith('@gmail.com');
-      _passwordsMatch = _passwordController.text == _confirmPasswordController.text;
+      _passwordsMatch =
+          _passwordController.text == _confirmPasswordController.text;
 
       _isRegisterButtonEnabled = _emailController.text.isNotEmpty &&
           _nameController.text.isNotEmpty &&
@@ -78,7 +79,8 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
+      final UserCredential userCredential = await _firebaseAuth
+          .createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
@@ -129,7 +131,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _uploadProfilePicture(String userEmail) async {
-    final storageRef = _firebaseStorage.ref().child('users/$userEmail/profile_picture.png');
+    final storageRef = _firebaseStorage.ref().child(
+        'users/$userEmail/profile_picture.png');
 
     try {
       final uploadTask = storageRef.putData(_selectedImageBytes!);
@@ -205,7 +208,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('You must agree to the terms and conditions to register.'),
+                          content: Text(
+                              'You must agree to the terms and conditions to register.'),
                         ),
                       );
                     }
@@ -243,7 +247,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _pickImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image);
 
     if (result != null) {
       PlatformFile file = result.files.first;
@@ -258,160 +263,117 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSmallScreen = MediaQuery.of(context).size.width < 600;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: Colors.grey[200],
       appBar: AppBar(
         title: const Text('Register'),
-        centerTitle : true ,
+        centerTitle: true,
         backgroundColor: Colors.grey[200],
         elevation: 0,
       ),
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 90.0), // Add padding to move the container down
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.78,
-            height: MediaQuery.of(context).size.height * 0.85,
-            padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.02),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15.0),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  blurRadius: 10.0,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
+      body: SingleChildScrollView( // Wrap the entire body with SingleChildScrollView
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isSmallScreen ? 50.0 : 90.0),
+            child: Container(
+              width: isSmallScreen ? screenWidth * 0.95 : screenWidth * 0.7,
+              padding: EdgeInsets.all(
+                  isSmallScreen ? screenWidth * 0.05 : screenWidth * 0.04),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    spreadRadius: 2,
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.grey[300],
-                          backgroundImage: _selectedImageBytes != null
-                              ? MemoryImage(_selectedImageBytes!)
-                              : null,
-                          child: _selectedImageBytes == null
-                              ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                              : null,
+                  if (_selectedImageBytes != null)
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundImage: MemoryImage(_selectedImageBytes!),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey[300],
+                        child: const Icon(
+                          Icons.add_a_photo,
+                          size: 40,
+                          color: Colors.white,
                         ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: _pickImage,
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.teal,
-                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    icon: Icons.email,
                   ),
-                  const SizedBox(height: 9),
-                  _buildTextField(_emailController, 'Email', TextInputType.emailAddress, Icons.email),
-                  if (!_isGmail)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5.0),
-                      child: Text(
-                        'Please use a Gmail address.',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: MediaQuery.of(context).size.width * 0.025,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 15),
-                  _buildTextField(_nameController, 'Name', TextInputType.name, Icons.person),
-                  const SizedBox(height: 15),
-                  _buildPasswordField(_passwordController, 'Password', Icons.lock, _obscurePassword, () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  }),
-                  if (!_passwordsMatch)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5.0),
-                      child: Text(
-                        'Passwords do not match.',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: MediaQuery.of(context).size.width * 0.025,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 15),
-                  _buildPasswordField(_confirmPasswordController, 'Confirm Password', Icons.lock, _obscureConfirmPassword, () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                    });
-                  }),
-                  const SizedBox(height: 15),
-                  // Phone number and country code input
-                  Row(
-                    children: [
-                      // Country code dropdown
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedDialCode,
-                            items: <String>['+20', '+1', '+44', '+91'] // Add more dial codes as needed
-                                .map<DropdownMenuItem<String>>((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedDialCode = newValue!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Phone number text field
-                      Expanded(
-                        child: _buildTextField(
-                          _phoneController,
-                          'Phone Number',
-                          TextInputType.phone,
-                          Icons.phone,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _nameController,
+                    label: 'Name',
+                    icon: Icons.person,
                   ),
-                  const SizedBox(height: 15),
-                  _buildTextField(_universityController, 'University', TextInputType.text, Icons.school),
-                  const SizedBox(height: 15),
-                  _buildTextField(_branchController, 'Branch', TextInputType.text, Icons.business),
-                  const SizedBox(height: 15),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _isRegisterButtonEnabled ? _registerUser : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        vertical: MediaQuery.of(context).size.height * 0.02,
-                      ),
-                      backgroundColor: _isRegisterButtonEnabled ? Colors.teal : Colors.grey,
-                    ),
-                    child: const Text('Register'),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _phoneController,
+                    label: 'Phone Number',
+                    icon: Icons.phone,
                   ),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _universityController,
+                    label: 'University',
+                    icon: Icons.school,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _branchController,
+                    label: 'Branch',
+                    icon: Icons.location_city,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildPasswordTextField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    obscureText: _obscurePassword,
+                    onVisibilityToggle: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildPasswordTextField(
+                    controller: _confirmPasswordController,
+                    label: 'Confirm Password',
+                    obscureText: _obscureConfirmPassword,
+                    onVisibilityToggle: () {
+                      setState(() {
+                        _obscureConfirmPassword =
+                        !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTermsCheckbox(),
+                  const SizedBox(height: 20),
+                  _buildRegisterButton(),
+                  if (_isLoading) const CircularProgressIndicator(),
                 ],
               ),
             ),
@@ -421,37 +383,91 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-
-
-  Widget _buildTextField(TextEditingController controller, String label, TextInputType type,
-      IconData icon) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
     return TextField(
       controller: controller,
-      keyboardType: type,
       decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Colors.blue),
         labelText: label,
-        prefixIcon: Icon(icon),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        filled: true,
+        fillColor: Colors.grey[200],
+      ),
+    );
+  }
+
+  Widget _buildPasswordTextField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscureText,
+    required VoidCallback onVisibilityToggle,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.lock, color: Colors.blue),
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        filled: true,
+        fillColor: Colors.grey[200],
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscureText ? Icons.visibility : Icons.visibility_off,
+            color: Colors.grey,
+          ),
+          onPressed: onVisibilityToggle,
         ),
       ),
     );
   }
 
-  Widget _buildPasswordField(TextEditingController controller, String label, IconData icon,
-      bool obscureText, VoidCallback onToggle) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        suffixIcon: IconButton(
-          icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
-          onPressed: onToggle,
+  Widget _buildTermsCheckbox() {
+    return Row(
+      children: [
+        Checkbox(
+          value: _agreeToTerms,
+          onChanged: (bool? value) {
+            setState(() {
+              _agreeToTerms = value ?? false;
+            });
+          },
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
+        const Flexible(
+          child: Text(
+            'I agree to the terms and conditions',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegisterButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isRegisterButtonEnabled ? _registerUser : null,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.all(15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          backgroundColor: _isRegisterButtonEnabled
+              ? Colors.blue
+              : Colors.grey,
+        ),
+        child: const Text(
+          'Register',
+          style: TextStyle(fontSize: 16),
         ),
       ),
     );
