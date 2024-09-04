@@ -268,11 +268,11 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
       body: Center(
         child: Padding(
-          padding: EdgeInsets.only(bottom: 120.0), // Add padding to move the container down
+          padding: EdgeInsets.only(bottom: 90.0), // Add padding to move the container down
           child: Container(
             width: MediaQuery.of(context).size.width * 0.78,
-            height: MediaQuery.of(context).size.height * 0.74,
-            padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.028),
+            height: MediaQuery.of(context).size.height * 0.8,
+            padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.02),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(15.0),

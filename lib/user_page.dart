@@ -30,6 +30,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   bool _isLoading = true;
   int _selectedIndex = 0;
   late TabController _tabController;
+  String _selectedCategory = 'All'; // Track selected category
 
   @override
   void initState() {
@@ -318,10 +319,12 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       icon: Icon(icon, color: Colors.white),
       label: Text(label, style: const TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         backgroundColor: color,
-        padding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-        elevation: 5.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        elevation: 4,
       ),
     );
   }
@@ -329,21 +332,18 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   Widget _buildTopSection(bool isSmallScreen) {
     return Container(
       decoration: BoxDecoration(
-        image: const DecorationImage(
+        image: DecorationImage(
           image: AssetImage('assets/login1.png'), // Background image
           fit: BoxFit.cover,
         ),
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(isSmallScreen ? 20 : 30), // Adjust the radius as needed
+          bottom: Radius.circular(30), // Adjust the radius as needed
         ),
       ),
-      padding: EdgeInsets.symmetric(
-        vertical: isSmallScreen ? 10 : 20,
-        horizontal: isSmallScreen ? 15 : 20,
-      ),
+      padding: const EdgeInsets.all(20),
       child: ClipRRect(
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(isSmallScreen ? 20 : 30), // Ensure the content respects the border radius
+          bottom: Radius.circular(30), // Ensure the content respects the border radius
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,182 +355,239 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildGreetingAndNotificationIcon(bool isSmallScreen) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: isSmallScreen ? 30 : 40,
-              backgroundImage: _profileImageUrl != null
-                  ? NetworkImage(_profileImageUrl!)
-                  : const AssetImage('assets/placeholder.png') as ImageProvider,
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello, $_userName!',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 16 : 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                Text(
-                  'ID: $_studentId',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 12 : 16,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        IconButton(
-          icon: const Icon(Icons.notifications, size: 30),
-          onPressed: () {
-            // Handle notification icon press
-          },
-        ),
-      ],
-    );
+  void _onCategoryButtonPressed(String category) {
+    setState(() {
+      _selectedCategory = category;
+    });
+    _fetchCoursesFromFirestore(status: category == 'All' ? null : category.toLowerCase());
   }
 
-  Widget _buildCategoryButtons(bool isSmallScreen) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Wrap(
-        spacing: 10.0,
+  bool _isButtonDisabled(String category) {
+    return _selectedCategory == category;
+  }
+
+  Widget _buildGreetingAndNotificationIcon(bool isSmallScreen) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 40.0), // Add padding to push it down
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildCategoryButton(
-            'All',
-            isSmallScreen,
-            Icons.all_inclusive,
-                () => _fetchCoursesFromFirestore(),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: isSmallScreen ? 25 : 30,
+                backgroundImage: _profileImageUrl != null
+                    ? NetworkImage(_profileImageUrl!)
+                    : const AssetImage('assets/etqan.png') as ImageProvider,
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello, $_userName',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isSmallScreen ? 18 : 24,
+                    ),
+                  ),
+                  Text(
+                    'ID: $_studentId',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isSmallScreen ? 14 : 18,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          _buildCategoryButton(
-            'Popular',
-            isSmallScreen,
-            Icons.star,
-                () => _fetchCoursesFromFirestore(status: 'popular'),
-          ),
-          _buildCategoryButton(
-            'New',
-            isSmallScreen,
-            Icons.new_releases,
-                () => _fetchCoursesFromFirestore(status: 'new'),
+          IconButton(
+            icon: Icon(
+              Icons.settings,
+              color: Colors.white,
+              size: isSmallScreen ? 30 : 36,
+            ),
+            onPressed: _showOptionsDialog,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryButton(String label, bool isSmallScreen, IconData icon, VoidCallback onPressed) {
+  Widget _buildCategoryButtons(bool isSmallScreen) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildCategoryButton(
+          label: 'All',
+          icon: Icons.list_alt,
+          onPressed: () => _onCategoryButtonPressed('All'),
+          isDisabled: _isButtonDisabled('All'),
+        ),
+        const SizedBox(width: 10),
+        _buildCategoryButton(
+          label: 'Popular',
+          icon: Icons.trending_up,
+          onPressed: () => _onCategoryButtonPressed('Popular'),
+          isDisabled: _isButtonDisabled('Popular'),
+        ),
+        const SizedBox(width: 10),
+        _buildCategoryButton(
+          label: 'New',
+          icon: Icons.new_releases,
+          onPressed: () => _onCategoryButtonPressed('New'),
+          isDisabled: _isButtonDisabled('New'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+    required bool isDisabled,
+  }) {
     return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: isSmallScreen ? 16 : 24),
-      label: Text(label, style: TextStyle(fontSize: isSmallScreen ? 14 : 18)),
+      onPressed: isDisabled ? null : onPressed,
+      icon: Icon(icon, color: isDisabled ? Colors.grey : Colors.white),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 16,
+          color: isDisabled ? Colors.grey : Colors.white,
+        ),
+      ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+        backgroundColor: isDisabled ? Colors.grey : Colors.blueAccent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
       ),
     );
   }
+
 
   Widget _buildTrendingCoursesSection(bool isSmallScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
           child: Text(
             'Trending Courses',
             style: TextStyle(
-              fontSize: isSmallScreen ? 20 : 24,
+              fontSize: isSmallScreen ? 20 : 28,
               fontWeight: FontWeight.bold,
-              color: Colors.black,
             ),
           ),
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          height: isSmallScreen ? 180 : 250,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _items.length,
-            itemBuilder: (context, index) {
-              final item = _items[index];
-              final imageUrl = _courseImages[item.name] ?? 'https://example.com/placeholder.png';
-              return GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CourseDetailedPage(
-                      courseName: item.name,
-                      courseDescription: '',
-                      courseImageUrl: '',
-                      courseImage: '',
-                      imageUrl: imageUrl,
-                    ),
-                  ),
-                ),
-                child: Container(
-                  width: isSmallScreen ? 140 : 180,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    image: DecorationImage(
-                      image: NetworkImage(imageUrl),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      color: Colors.black.withOpacity(0.5),
-                      child: Text(
-                        item.name,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isSmallScreen ? 14 : 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+        _items.isEmpty
+            ? Padding(
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
+          child: Text(
+            'No courses found',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 16 : 20,
+              color: Colors.grey,
+            ),
+          ),
+        )
+            : _buildCoursesList(isSmallScreen),
+      ],
+    );
+  }
+  Widget _buildCoursesList(bool isSmallScreen) {
+    return SizedBox(
+      height: isSmallScreen ? 200 : 250,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _items.length,
+        itemBuilder: (context, index) {
+          final item = _items[index];
+          final courseImage = _courseImages[item.name] ?? 'https://example.com/placeholder.png';
+
+          return GestureDetector(
+            onTap: () {
+              // Navigate to CourseDetailedPage with item details
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CourseDetailedPage(
+                    courseName: item.name,
+                    courseImage: courseImage, courseDescription: '', imageUrl: '', courseImageUrl: '',
                   ),
                 ),
               );
             },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfilePage() {
-    return Center(
-      child: ElevatedButton(
-        onPressed: () {
-          // Implement profile page functionality
+            child: Container(
+              width: isSmallScreen ? 160 : 200,
+              margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 10 : 15),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                image: DecorationImage(
+                  image: NetworkImage(courseImage),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 10 : 15),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(20),
+                        ),
+                      ),
+                      child: Text(
+                        item.name,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isSmallScreen ? 14 : 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         },
-        child: const Text('Profile Page'),
       ),
     );
   }
 
-  Future<void> _deleteCourse() async {
-    // Implement course deletion functionality
+
+
+
+  Widget _buildProfilePage() {
+    return const Center(
+      child: Text(
+        'Profile Page',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+    );
   }
 
-  void _showAllCourses() {
-    // Implement showing all courses functionality
+  Future<void> _showAllCourses() async {
+    try {
+      await _fetchCoursesFromFirestore();
+    } catch (e) {
+      print('Error showing all courses: $e');
+    }
+  }
+
+  Future<void> _deleteCourse() async {
+    // Add logic to delete a course
   }
 }
 
@@ -538,5 +595,8 @@ class CustomListItem {
   final String name;
   final String content;
 
-  CustomListItem({required this.name, required this.content});
+  CustomListItem({
+    required this.name,
+    required this.content,
+  });
 }
