@@ -318,12 +318,10 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       icon: Icon(icon, color: Colors.white),
       label: Text(label, style: const TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         backgroundColor: color,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        elevation: 4,
+        padding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+        elevation: 5.0,
       ),
     );
   }
@@ -331,18 +329,21 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   Widget _buildTopSection(bool isSmallScreen) {
     return Container(
       decoration: BoxDecoration(
-        image: DecorationImage(
+        image: const DecorationImage(
           image: AssetImage('assets/login1.png'), // Background image
           fit: BoxFit.cover,
         ),
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(30), // Adjust the radius as needed
+          bottom: Radius.circular(isSmallScreen ? 20 : 30), // Adjust the radius as needed
         ),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.symmetric(
+        vertical: isSmallScreen ? 10 : 20,
+        horizontal: isSmallScreen ? 15 : 20,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(30), // Ensure the content respects the border radius
+          bottom: Radius.circular(isSmallScreen ? 20 : 30), // Ensure the content respects the border radius
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,27 +362,28 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         Row(
           children: [
             CircleAvatar(
-              radius: isSmallScreen ? 25 : 30,
+              radius: isSmallScreen ? 30 : 40,
               backgroundImage: _profileImageUrl != null
                   ? NetworkImage(_profileImageUrl!)
-                  : const AssetImage('assets/etqan.png') as ImageProvider,
+                  : const AssetImage('assets/placeholder.png') as ImageProvider,
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello, $_userName',
+                  'Hello, $_userName!',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 18 : 24,
+                    fontSize: isSmallScreen ? 16 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                 ),
                 Text(
                   'ID: $_studentId',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 14 : 18,
+                    fontSize: isSmallScreen ? 12 : 16,
+                    color: Colors.black54,
                   ),
                 ),
               ],
@@ -389,12 +391,10 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
           ],
         ),
         IconButton(
-          icon: Icon(
-            Icons.person,
-            color: Colors.white,
-            size: isSmallScreen ? 30 : 36,
-          ),
-          onPressed: _showOptionsDialog,
+          icon: const Icon(Icons.notifications, size: 30),
+          onPressed: () {
+            // Handle notification icon press
+          },
         ),
       ],
     );
@@ -403,7 +403,8 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   Widget _buildCategoryButtons(bool isSmallScreen) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(
+      child: Wrap(
+        spacing: 10.0,
         children: [
           _buildCategoryButton(
             'All',
@@ -411,14 +412,12 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
             Icons.all_inclusive,
                 () => _fetchCoursesFromFirestore(),
           ),
-          const SizedBox(width: 10),
           _buildCategoryButton(
             'Popular',
             isSmallScreen,
             Icons.star,
                 () => _fetchCoursesFromFirestore(status: 'popular'),
           ),
-          const SizedBox(width: 10),
           _buildCategoryButton(
             'New',
             isSmallScreen,
@@ -430,31 +429,15 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildCategoryButton(
-      String label,
-      bool isSmallScreen,
-      IconData icon,
-      VoidCallback onPressed,
-      ) {
+  Widget _buildCategoryButton(String label, bool isSmallScreen, IconData icon, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white),
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: isSmallScreen ? 14 : 18,
-          color: Colors.white,
-        ),
-      ),
+      icon: Icon(icon, size: isSmallScreen ? 16 : 24),
+      label: Text(label, style: TextStyle(fontSize: isSmallScreen ? 14 : 18)),
       style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.symmetric(
-          vertical: isSmallScreen ? 10 : 15,
-          horizontal: isSmallScreen ? 15 : 20,
-        ),
-        backgroundColor: Colors.blueAccent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
-        ),
+        backgroundColor: Colors.blue,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
       ),
     );
   }
@@ -476,7 +459,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: isSmallScreen ? 200 : 250,
+          height: isSmallScreen ? 180 : 250,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _items.length,
@@ -514,9 +497,9 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
                       color: Colors.black.withOpacity(0.5),
                       child: Text(
                         item.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: isSmallScreen ? 14 : 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -532,24 +515,22 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildProfilePage() {
-    return const Center(
-      child: Text(
-        'Profile Page',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    return Center(
+      child: ElevatedButton(
+        onPressed: () {
+          // Implement profile page functionality
+        },
+        child: const Text('Profile Page'),
       ),
     );
   }
 
-  Future<void> _showAllCourses() async {
-    try {
-      await _fetchCoursesFromFirestore();
-    } catch (e) {
-      print('Error showing all courses: $e');
-    }
+  Future<void> _deleteCourse() async {
+    // Implement course deletion functionality
   }
 
-  Future<void> _deleteCourse() async {
-    // Add logic to delete a course
+  void _showAllCourses() {
+    // Implement showing all courses functionality
   }
 }
 
@@ -557,8 +538,5 @@ class CustomListItem {
   final String name;
   final String content;
 
-  CustomListItem({
-    required this.name,
-    required this.content,
-  });
+  CustomListItem({required this.name, required this.content});
 }
