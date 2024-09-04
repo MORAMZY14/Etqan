@@ -271,7 +271,7 @@ class _RegisterPageState extends State<RegisterPage> {
           padding: EdgeInsets.only(bottom: 90.0), // Add padding to move the container down
           child: Container(
             width: MediaQuery.of(context).size.width * 0.78,
-            height: MediaQuery.of(context).size.height * 0.8,
+            height: MediaQuery.of(context).size.height * 0.85,
             padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.02),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -316,7 +316,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 9),
                   _buildTextField(_emailController, 'Email', TextInputType.emailAddress, Icons.email),
                   if (!_isGmail)
                     Padding(
@@ -325,7 +325,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         'Please use a Gmail address.',
                         style: TextStyle(
                           color: Colors.red,
-                          fontSize: MediaQuery.of(context).size.width * 0.015,
+                          fontSize: MediaQuery.of(context).size.width * 0.025,
                         ),
                       ),
                     ),
@@ -344,7 +344,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         'Passwords do not match.',
                         style: TextStyle(
                           color: Colors.red,
-                          fontSize: MediaQuery.of(context).size.width * 0.015,
+                          fontSize: MediaQuery.of(context).size.width * 0.025,
                         ),
                       ),
                     ),
