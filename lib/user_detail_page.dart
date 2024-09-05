@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
+
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -110,7 +110,6 @@ class UserDetailsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          await _requestContactPermission(userData['name'], fullPhoneNumber);
                         },
                         icon: const Icon(Icons.contact_page, color: Colors.white),
                         label: const Text('Save Contact'),
@@ -138,30 +137,9 @@ class UserDetailsPage extends StatelessWidget {
     );
   }
 
-  Future<void> _saveContact(String name, String phoneNumber) async {
-    if (await FlutterContacts.requestPermission()) {
-      final contact = Contact(
-        name: Name(first: name),
-        phones: [Phone(phoneNumber)],
-      );
-      await contact.insert(); // Use the insert method on the contact object
-      print('Contact saved');
-    } else {
-      print('Contact permission not granted');
-    }
-  }
 
-  Future<void> _requestContactPermission(String name, String phoneNumber) async {
-    final status = await Permission.contacts.status;
 
-    if (!status.isGranted) {
-      await Permission.contacts.request();
-    }
 
-    if (await Permission.contacts.isGranted) {
-      await _saveContact(name, phoneNumber);
-    }
-  }
 
   void _showFAQDialog(BuildContext context) {
     final faqOptions = [
