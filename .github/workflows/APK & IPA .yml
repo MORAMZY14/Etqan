@@ -31,6 +31,16 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
+      - name: Cache Flutter and Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
       - name: Install dependencies
         run: flutter pub get
 
