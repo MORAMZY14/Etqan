@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -109,19 +110,18 @@ class UserDetailsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          await _requestContactPermission(); // Request permission before saving contact
-                          // Code to save the contact after permissions are granted
+                          await _requestContactPermission(userData['name'], fullPhoneNumber);
                         },
                         icon: const Icon(Icons.contact_page, color: Colors.white),
                         label: const Text('Save Contact'),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                       ),
                     ),
-                    const SizedBox(width: 10), // Add some space between the buttons
+                    const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          _showFAQDialog(context); // Show FAQ dialog on button press
+                          _showFAQDialog(context);
                         },
                         icon: const Icon(Icons.help_outline, color: Colors.white),
                         label: const Text('FAQ'),
@@ -138,18 +138,28 @@ class UserDetailsPage extends StatelessWidget {
     );
   }
 
-  Future<void> _requestContactPermission() async {
-    PermissionStatus status = await Permission.contacts.status;
-
-    if (!status.isGranted) {
-      status = await Permission.contacts.request();
-    }
-
-    if (status.isGranted) {
-      print('Contact permission granted');
-      // Code to save the contact
+  Future<void> _saveContact(String name, String phoneNumber) async {
+    if (await FlutterContacts.requestPermission()) {
+      final contact = Contact(
+        name: Name(first: name),
+        phones: [Phone(phoneNumber)],
+      );
+      await contact.insert(); // Use the insert method on the contact object
+      print('Contact saved');
     } else {
       print('Contact permission not granted');
+    }
+  }
+
+  Future<void> _requestContactPermission(String name, String phoneNumber) async {
+    final status = await Permission.contacts.status;
+
+    if (!status.isGranted) {
+      await Permission.contacts.request();
+    }
+
+    if (await Permission.contacts.isGranted) {
+      await _saveContact(name, phoneNumber);
     }
   }
 
