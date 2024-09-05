@@ -49,6 +49,8 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>NSContactsUsageDescription</key>
+        <string>We need access to your contacts to save user details.</string>
 
 		<!-- Photo Library and Camera Usage Descriptions -->
 		<key>NSPhotoLibraryUsageDescription</key>

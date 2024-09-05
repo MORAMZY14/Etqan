@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -14,12 +15,6 @@ class UserDetailsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('User Details'),
         backgroundColor: Colors.teal,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () => _showFAQDialog(context),
-          ),
-        ],
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('Users').doc(userId).get(),
@@ -109,23 +104,31 @@ class UserDetailsPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    // Launch native contacts app with pre-filled data (this URL scheme varies by platform)
-                    final contactUrl = Uri.encodeFull(
-                        'content://contacts/people/?name=${userData['name']}&phone=$fullPhoneNumber'
-                    );
-                    if (await canLaunchUrl(Uri.parse(contactUrl))) {
-                      await launchUrl(Uri.parse(contactUrl));
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Could not open contacts app.')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.contact_page, color: Colors.white),
-                  label: const Text('Save Contact'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          await _requestContactPermission(); // Request permission before saving contact
+                          // Code to save the contact after permissions are granted
+                        },
+                        icon: const Icon(Icons.contact_page, color: Colors.white),
+                        label: const Text('Save Contact'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                      ),
+                    ),
+                    const SizedBox(width: 10), // Add some space between the buttons
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _showFAQDialog(context); // Show FAQ dialog on button press
+                        },
+                        icon: const Icon(Icons.help_outline, color: Colors.white),
+                        label: const Text('FAQ'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -133,6 +136,21 @@ class UserDetailsPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _requestContactPermission() async {
+    PermissionStatus status = await Permission.contacts.status;
+
+    if (!status.isGranted) {
+      status = await Permission.contacts.request();
+    }
+
+    if (status.isGranted) {
+      print('Contact permission granted');
+      // Code to save the contact
+    } else {
+      print('Contact permission not granted');
+    }
   }
 
   void _showFAQDialog(BuildContext context) {
