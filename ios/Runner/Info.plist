@@ -49,15 +49,11 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
-		<key>NSContactsUsageDescription</key>
-        <string>We need access to your contacts to save user details.</string>
 
 		<!-- Photo Library and Camera Usage Descriptions -->
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photo library to allow you to select images.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>We need access to your camera to allow you to take photos.</string>
-
-
 	</dict>
 </plist>
