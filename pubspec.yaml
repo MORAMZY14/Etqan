@@ -33,7 +33,7 @@ dependencies:
   twilio_flutter: ^0.9.0
   onesignal_flutter: ^5.2.4
   intl_phone_number_input: ^0.7.0+2
-  libphonenumber_plugin: ^0.3.4
+  libphonenumber_plugin:^0.3.3
 
 
 
