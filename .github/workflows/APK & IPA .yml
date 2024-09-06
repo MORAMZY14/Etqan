@@ -57,18 +57,25 @@ jobs:
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
-          fi  # Closing the if statement properly
+          fi
         shell: bash
 
       - name: List APK Directory
         run: ls -R build/app/outputs/flutter-apk
+
+      - name: Check if iOS Directory Exists
+        run: |
+          if [ ! -d "ios" ]; then
+            echo "iOS directory not found!"
+            exit 1
+          fi
 
       - name: Update CocoaPods
         run: |
           cd ios
           pod repo update
           pod install
-        working-directory: ios
+        shell: bash
 
       - name: Build iOS App
         run: |
@@ -81,11 +88,11 @@ jobs:
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
-          fi  # Closing the if statement for APK check
+          fi
           if [ ! -f build/ios/iphoneos/Etqan.ipa ]; then
             echo "IPA not found!"
             exit 1
-          fi  # Closing the if statement for IPA check
+          fi
         shell: bash
 
       - name: Push to Releases
