@@ -57,6 +57,7 @@ jobs:
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
+          fi  # Closing the if statement properly
         shell: bash
 
       - name: List APK Directory
@@ -80,10 +81,11 @@ jobs:
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
-          fi
+          fi  # Closing the if statement for APK check
           if [ ! -f build/ios/iphoneos/Etqan.ipa ]; then
             echo "IPA not found!"
             exit 1
+          fi  # Closing the if statement for IPA check
         shell: bash
 
       - name: Push to Releases
