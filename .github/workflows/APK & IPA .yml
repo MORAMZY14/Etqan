@@ -47,6 +47,9 @@ jobs:
       - name: Clean build directory
         run: flutter clean
 
+      - name: Check disk space
+        run: df -h
+
       - name: Set environment variable for keystore
         run: echo "KEYSTORE_PATH=$PWD/android/app/my-release-key.jks" >> $GITHUB_ENV
 
@@ -94,6 +97,9 @@ jobs:
             exit 1
           fi
         shell: bash
+
+      - name: Clean up build directory to save space
+        run: rm -rf build
 
       - name: Push to Releases
         uses: ncipollo/release-action@v1
