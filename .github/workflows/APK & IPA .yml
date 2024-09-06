@@ -16,9 +16,14 @@ jobs:
     name: Build & Release
     runs-on: macos-latest
 
+    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
+      - name: Clean up build directory to save space
+        run: rm -rf build
 
       - name: Set up Java
         uses: actions/setup-java@v3
@@ -97,9 +102,6 @@ jobs:
             exit 1
           fi
         shell: bash
-
-      - name: Clean up build directory to save space
-        run: rm -rf build
 
       - name: Push to Releases
         uses: ncipollo/release-action@v1
