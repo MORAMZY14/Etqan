@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:device_installed_apps/device_installed_apps.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -120,10 +119,16 @@ class UserDetailsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          await _saveContact(userData['name'], fullPhoneNumber);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Contact saved successfully.'),
-                          ));
+                          try {
+                            await _saveContact(userData['name'], fullPhoneNumber);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('Contact saved successfully.'),
+                            ));
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Failed to save contact: $e'),
+                            ));
+                          }
                         },
                         icon: const Icon(Icons.contact_page, color: Colors.white),
                         label: const Text('Save Contact'),
@@ -152,13 +157,8 @@ class UserDetailsPage extends StatelessWidget {
   }
 
   Future<bool> _isWhatsAppInstalled() async {
-    try {
-      final apps = await DeviceInstalledApps.getApps();
-      return apps.any((app) => app.bundleId == 'com.whatsapp');
-    } catch (e) {
-      print('Error checking WhatsApp installation: $e');
-      return false;
-    }
+    final whatsappUrl = 'whatsapp://send?phone=123456789';
+    return await canLaunchUrl(Uri.parse(whatsappUrl));
   }
 
   Future<void> _saveContact(String name, String phoneNumber) async {
