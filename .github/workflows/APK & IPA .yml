@@ -16,8 +16,6 @@ jobs:
     name: Build & Release
     runs-on: macos-latest
 
-    
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -45,6 +43,9 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
+            
+      - name: Set execute permissions for gradlew
+        run: chmod +x android/gradlew
 
       - name: Install dependencies
         run: flutter pub get
@@ -61,7 +62,7 @@ jobs:
       - name: Build APK
         run: |
           export ORG_GRADLE_CACHING=false
-          flutter build apk --release -v
+          ./android/gradlew assembleRelease
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
