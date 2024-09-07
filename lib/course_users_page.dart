@@ -19,58 +19,79 @@ class CourseUsersPage extends StatelessWidget {
         title: Text('Users of $courseName'),
         backgroundColor: Colors.teal,
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('Users')
-            .where('courses', arrayContains: courseId)
+            .collection('Courses')
+            .doc(courseId)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data == null || snapshot.data!['ApprovedUsers'] == null) {
             return const Center(child: Text('No users enrolled in this course.'));
           }
 
-          final users = snapshot.data!.docs;
+          // Fetch signedUsers from the course document
+          final List<String> signedUserIds = List<String>.from(snapshot.data!['ApprovedUsers']);
 
           return ListView.builder(
             padding: const EdgeInsets.all(16.0),
-            itemCount: users.length,
+            itemCount: signedUserIds.length,
             itemBuilder: (context, index) {
-              final user = users[index];
-
-              return Card(
-                elevation: 4.0,
-                margin: const EdgeInsets.symmetric(vertical: 8.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.teal,
-                    child: Text(
-                      user['name'][0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  title: Text(
-                    user['name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(user['email']),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      _confirmDeleteUser(context, user.id);
-                    },
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserDetailsPage(userId: user.id),
-                      ),
+              final userId = signedUserIds[index];
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('Users').doc(userId).get(),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const ListTile(
+                      title: Text('Loading user...'),
                     );
-                  },
-                ),
+                  }
+
+                  if (!userSnapshot.hasData || userSnapshot.data == null) {
+                    return const ListTile(
+                      title: Text('User not found'),
+                    );
+                  }
+
+                  final userData = userSnapshot.data!;
+                  final userName = userData['name'] ?? 'No Name';
+                  final userEmail = userData['email'] ?? 'No Email';
+
+                  return Card(
+                    elevation: 4.0,
+                    margin: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.teal,
+                        child: Text(
+                          userName[0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      title: Text(
+                        userName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(userEmail),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          _confirmDeleteUser(context, userId);
+                        },
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserDetailsPage(userId: userId),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               );
             },
           );
@@ -108,25 +129,28 @@ class CourseUsersPage extends StatelessWidget {
     final courseDoc = FirebaseFirestore.instance.collection('Courses').doc(courseId);
 
     try {
-      // Update user document
+      // Get user document
       final userSnapshot = await userDoc.get();
-      final userCourses = List<String>.from(userSnapshot.data()?['courses'] ?? []);
+      final List<dynamic> registeredCourses = List<dynamic>.from(userSnapshot.data()?['RegisteredCourses'] ?? []);
 
-      if (userCourses.contains(courseId)) {
-        userCourses.remove(courseId);
-        await userDoc.update({'courses': userCourses});
-      }
+      // Find and remove the course from the user's RegisteredCourses
+      registeredCourses.removeWhere((course) {
+        return course is Map<String, dynamic> && course['courseName'] == courseId;
+      });
 
-      // Update course document
+      await userDoc.update({'RegisteredCourses': registeredCourses});
+
+      // Update course document to remove the user from signedUsers
       final courseSnapshot = await courseDoc.get();
-      final courseUsers = List<String>.from(courseSnapshot.data()?['signedUsers'] ?? []);
+      final List<dynamic> courseUsers = List<String>.from(courseSnapshot.data()?['ApprovedUsers'] ?? []);
 
       if (courseUsers.contains(userId)) {
         courseUsers.remove(userId);
-        await courseDoc.update({'signedUsers': courseUsers});
+        await courseDoc.update({'ApprovedUsers': courseUsers});
       }
     } catch (e) {
       print('Error deleting user: $e');
     }
   }
 }
+

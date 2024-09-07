@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
-
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:device_installed_apps/device_installed_apps.dart';
 
 class UserDetailsPage extends StatelessWidget {
   final String userId;
@@ -37,8 +37,12 @@ class UserDetailsPage extends StatelessWidget {
           final phoneNumber = userData['phone'] ?? '';
           final whatsappNumber = userData['whatsapp'] ?? phoneNumber;
 
-          final fullPhoneNumber = '$dialCode$phoneNumber'.replaceAll(' ', '');
-          final fullWhatsAppNumber = '$dialCode$whatsappNumber'.replaceAll(' ', '');
+          // Ensure the phone number has correct format with + and no spaces
+          String fullPhoneNumber = '$dialCode$phoneNumber'.replaceAll(' ', '');
+          String fullWhatsAppNumber = '$dialCode$whatsappNumber'.replaceAll(' ', '');
+          if (!fullWhatsAppNumber.startsWith('+')) {
+            fullWhatsAppNumber = '+$fullWhatsAppNumber';
+          }
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
@@ -70,12 +74,18 @@ class UserDetailsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          final whatsappUrl = 'https://wa.me/$fullWhatsAppNumber';
-                          if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-                            await launchUrl(Uri.parse(whatsappUrl));
+                          if (await _isWhatsAppInstalled()) {
+                            final whatsappUrl = 'https://wa.me/$fullWhatsAppNumber';
+                            if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+                              await launchUrl(Uri.parse(whatsappUrl));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text('Could not open WhatsApp.'),
+                              ));
+                            }
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Could not open WhatsApp.'),
+                              content: Text('WhatsApp is not installed.'),
                             ));
                           }
                         },
@@ -110,6 +120,10 @@ class UserDetailsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
+                          await _saveContact(userData['name'], fullPhoneNumber);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Contact saved successfully.'),
+                          ));
                         },
                         icon: const Icon(Icons.contact_page, color: Colors.white),
                         label: const Text('Save Contact'),
@@ -137,9 +151,27 @@ class UserDetailsPage extends StatelessWidget {
     );
   }
 
+  Future<bool> _isWhatsAppInstalled() async {
+    try {
+      final apps = await DeviceInstalledApps.getApps();
+      return apps.any((app) => app.bundleId == 'com.whatsapp');
+    } catch (e) {
+      print('Error checking WhatsApp installation: $e');
+      return false;
+    }
+  }
 
-
-
+  Future<void> _saveContact(String name, String phoneNumber) async {
+    if (await FlutterContacts.requestPermission()) {
+      final newContact = Contact(
+        name: Name(first: name),
+        phones: [Phone(phoneNumber)],
+      );
+      await FlutterContacts.insertContact(newContact);
+    } else {
+      print('Permission denied to access contacts');
+    }
+  }
 
   void _showFAQDialog(BuildContext context) {
     final faqOptions = [

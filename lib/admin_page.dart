@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -13,6 +12,7 @@ import 'bottom_bar_admin.dart';
 import 'admin_login_page.dart';
 import 'course_management_page.dart';
 import 'admin-settings_page.dart';
+import 'approval_admin_page.dart';
 
 class AdminPage extends StatefulWidget {
   final String email;
@@ -157,8 +157,9 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
       for (var doc in snapshot.docs) {
         final courseId = doc.id;
         final signedUsers = doc['signedUsers'] as List<dynamic>? ?? [];
+        final approvedUsers = doc['ApprovedUsers'] as List<dynamic>? ?? [];
 
-        // Compare with previously stored signedUsers
+        // Compare with previously stored signedUsers and approvedUsers
         if (_previousSignedUsers.containsKey(courseId)) {
           final previousSignedUsers = _previousSignedUsers[courseId] ?? [];
 
@@ -176,7 +177,10 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
           if (removedUsers.isNotEmpty) {
             // Notify about unregistrations
             for (var user in removedUsers) {
-              _sendNotification(courseId, 'Student Unregistered: $user');
+              // Check if the user is still in approvedUsers
+              if (!approvedUsers.contains(user)) {
+                _sendNotification(courseId, 'Student Has Unregistered: $user');
+              }
             }
           }
         }
@@ -389,7 +393,12 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
                   MaterialPageRoute(builder: (context) =>   AnnouncementsPage()),
                 );
               }),
-              _buildCategoryButton('Approval', Icons.check, Colors.green, () {}),
+              _buildCategoryButton('Approval', Icons.check, Colors.green, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>   ApproveRequestsPage()),
+                );
+              }),
             ],
           ),
           const SizedBox(height: 10),

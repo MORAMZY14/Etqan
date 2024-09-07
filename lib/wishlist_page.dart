@@ -93,13 +93,23 @@ class _WishlistPageState extends State<WishlistPage> {
 
     final userEmail = user.email!;
     final userDoc = _firestore.collection('Users').doc(userEmail);
-
     final selectedCourseNames = _selectedCourses.toList();
+    final registrationDate = DateTime.now(); // Current date and time
 
+    // Prepare the registered course data for the user's document
+    final List<Map<String, dynamic>> registeredCoursesData = selectedCourseNames.map((courseName) {
+      return {
+        'courseName': courseName,
+        'registrationDate': registrationDate,
+      };
+    }).toList();
+
+    // Update user's document: add registered courses and dates
     await userDoc.update({
-      'courses': FieldValue.arrayUnion(selectedCourseNames),
+      'RegisteredCourses': FieldValue.arrayUnion(registeredCoursesData),
     });
 
+    // For each selected course, add the user to PendingUsers in the course document
     for (final courseName in selectedCourseNames) {
       await _firestore.collection('Courses').doc(courseName).update({
         'signedUsers': FieldValue.arrayUnion([userEmail]),
@@ -107,11 +117,13 @@ class _WishlistPageState extends State<WishlistPage> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Courses registered successfully!')),
+      const SnackBar(content: Text('Courses registered successfully! Awaiting admin approval.')),
     );
 
     Navigator.pop(context);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
