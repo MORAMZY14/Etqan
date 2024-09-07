@@ -1,4 +1,4 @@
-Build & Release
+name: Build & Release
 
 on:
   pull_request:
@@ -45,6 +45,7 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -76,6 +77,7 @@ jobs:
             echo "iOS directory not found!"
             exit 1
           fi
+
       - name: Update CocoaPods
         run: |
           cd ios
@@ -88,6 +90,7 @@ jobs:
           flutter build ios --release --no-codesign
           cd build/ios/iphoneos
           zip -r Etqan.ipa Runner.app
+
       - name: Check if APK and IPA exist
         run: |
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
