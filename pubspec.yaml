@@ -35,7 +35,7 @@ dependencies:
   intl_phone_number_input: ^0.7.0+2
   flutter_contacts: ^1.1.9+2
   device_installed_apps: ^1.0.1
-  android_intent: ^5.1.0
+  android_intent: ^5.0.2
 
 
 
