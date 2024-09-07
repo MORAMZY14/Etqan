@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
+
       - name: Set execute permissions for gradlew
         run: chmod +x android/gradlew
 
@@ -51,13 +51,13 @@ jobs:
         run: flutter pub get
 
       - name: Clean project with Gradle
-        run: ./android/gradlew clean
+        run: cd android && ./gradlew clean
         shell: bash
 
       - name: Build APK
         run: |
-          export ORG_GRADLE_CACHING=false
-          ./android/gradlew assembleRelease
+          cd android
+          ./gradlew assembleRelease
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
