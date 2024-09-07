@@ -16,12 +16,13 @@ jobs:
     name: Build & Release
     runs-on: macos-latest
 
-    
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         
+      - name: Set execute permissions for gradlew
+        run: chmod +x android/gradlew
+
       - name: Clean up build directory to save space
         run: rm -rf build
 
@@ -49,19 +50,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Clean build directory
-        run: flutter clean
-
-      - name: Check disk space
-        run: df -h
-
-      - name: Set environment variable for keystore
-        run: echo "KEYSTORE_PATH=$PWD/android/app/my-release-key.jks" >> $GITHUB_ENV
+      - name: Clean project with Gradle
+        run: ./android/gradlew clean
+        shell: bash
 
       - name: Build APK
         run: |
           export ORG_GRADLE_CACHING=false
-          flutter build apk --release -v
+          ./android/gradlew assembleRelease
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
