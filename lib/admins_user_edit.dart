@@ -41,46 +41,77 @@ class AdminsUserEditPage extends StatelessWidget {
     String userName = userData['name'] as String? ?? 'Unknown User';
     String userEmail = userData['email'] as String? ?? 'No email';
     String userPhone = userData['phone'] as String? ?? 'No number';
-    String userdial = userData['dial'] as String? ?? 'no dial : ';
+    String userdial = userData['dial'] as String? ?? '';
 
     return Card(
       elevation: 5,
       margin: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: profileImageUrl.startsWith('http')
-              ? NetworkImage(profileImageUrl)
-              : AssetImage(profileImageUrl) as ImageProvider,
-          onBackgroundImageError: (_, __) {
-            // Handle image loading error
-          },
-          backgroundColor: Colors.grey.shade200, // Optional: background color if image fails
-          child: profileImageUrl == 'assets/images/default-avatar.png'
-              ? Icon(Icons.person, color: Colors.grey)
-              : null,
-        ),
-        title: Text(userName),
-        subtitle: Text('$userEmail\n$userdial$userPhone'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(Icons.edit, color: Colors.purple), // Change icon color to purple
-              onPressed: () {
-                _showEditUserDialog(context, userDoc);
+      child: Column(
+        children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundImage: profileImageUrl.startsWith('http')
+                  ? NetworkImage(profileImageUrl)
+                  : AssetImage(profileImageUrl) as ImageProvider,
+              onBackgroundImageError: (_, __) {
+                // Handle image loading error
               },
+              backgroundColor: Colors.grey.shade200, // Optional: background color if image fails
+              child: profileImageUrl == 'assets/images/default-avatar.png'
+                  ? Icon(Icons.person, color: Colors.grey)
+                  : null,
             ),
-            IconButton(
-              icon: Icon(Icons.delete, color: Colors.purple), // Change icon color to purple
-              onPressed: () {
-                _showDeleteConfirmationDialog(context, userDoc.id);
-              },
+            title: Text(userName),
+            subtitle: Text('$userEmail\n$userdial$userPhone'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit, color: Colors.purple), // Change icon color to purple
+                  onPressed: () {
+                    _showEditUserDialog(context, userDoc);
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, color: Colors.purple), // Change icon color to purple
+                  onPressed: () {
+                    _showDeleteConfirmationDialog(context, userDoc.id);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          _buildRegisteredCourses(userData['RegisteredCourses']),
+        ],
       ),
     );
+  }
 
+  Widget _buildRegisteredCourses(List<dynamic>? registeredCourses) {
+    if (registeredCourses == null || registeredCourses.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text('No courses registered.', style: TextStyle(fontSize: 16)),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Registered Courses:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ...registeredCourses.map((course) {
+            final courseName = course['courseName'] ?? 'Unknown Course';
+            final registrationDate = course['registrationDate']?.toDate() ?? DateTime.now();
+            return ListTile(
+              title: Text(courseName),
+              subtitle: Text('Registered on: ${registrationDate.toLocal().toString().split(' ')[0]}'),
+            );
+          }).toList(),
+        ],
+      ),
+    );
   }
 
   void _showEditUserDialog(BuildContext context, DocumentSnapshot userDoc) {
@@ -142,7 +173,7 @@ class AdminsUserEditPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                _updateUser(userDoc.id, nameController.text, emailController.text , branchController.text , phoneController.text , studentIDController.text , UniversityController.text);
+                _updateUser(userDoc.id, nameController.text, emailController.text, branchController.text, phoneController.text, studentIDController.text, UniversityController.text);
                 Navigator.of(context).pop();
               },
               child: Text('Save'),
@@ -153,14 +184,14 @@ class AdminsUserEditPage extends StatelessWidget {
     );
   }
 
-  void _updateUser(String userId, String name, String email , String branch , String phone , String studentID , String university) {
+  void _updateUser(String userId, String name, String email, String branch, String phone, String studentID, String university) {
     _firestore.collection('Users').doc(userId).update({
       'name': name,
       'email': email,
-      'branch' : branch ,
-      'phone'  : phone ,
-      'studentID' : studentID ,
-      'university' : university,
+      'branch': branch,
+      'phone': phone,
+      'studentID': studentID,
+      'university': university,
     }).then((_) {
       print('User updated');
     }).catchError((error) {
