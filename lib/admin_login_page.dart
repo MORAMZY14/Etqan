@@ -33,7 +33,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       if (email != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => AdminPage(email: email)), // Pass the email
+          MaterialPageRoute(
+              builder: (context) => AdminPage(email: email)), // Pass the email
         );
       } else {
         _loadSavedCredentials();
@@ -67,12 +68,14 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
     try {
       print('Attempting to log in admin with email: $email');
-      UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+      UserCredential userCredential = await _firebaseAuth
+          .signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance.collection('Admins').doc(email).get();
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('Admins').doc(email).get();
       if (adminSnapshot.exists) {
         print('Admin logged in: ${userCredential.user?.email}');
         _handleLoginSuccess(email, password);
@@ -127,61 +130,68 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Enter your email',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final String email = emailController.text.trim();
-              if (email.isNotEmpty) {
-                try {
-                  await _firebaseAuth.sendPasswordResetEmail(email: email);
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password reset email sent.'),
-                    ),
-                  );
-                } catch (e) {
-                  print('Error: $e');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter your email.'),
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Reset Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Enter your email',
                   ),
-                );
-              }
-            },
-            child: const Text('Send'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final String email = emailController.text.trim();
+                  if (email.isNotEmpty) {
+                    try {
+                      await _firebaseAuth.sendPasswordResetEmail(email: email);
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password reset email sent.'),
+                        ),
+                      );
+                    } catch (e) {
+                      print('Error: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter your email.'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Send'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery
+        .of(context)
+        .size
+        .height;
+    final double screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
 
     return Scaffold(
       body: Container(
@@ -189,137 +199,142 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         height: double.infinity,
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: const AssetImage('assets/login1.png'), // Background image
+            image: const AssetImage('assets/login1.png'),
             fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken),
+            colorFilter: ColorFilter.mode(
+                Colors.black.withOpacity(0.5), BlendMode.darken),
           ),
         ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(height: screenHeight * 0.03),
-              Image.asset(
-                'assets/etqan.png',
-                width: screenWidth * 0.4,
-                height: screenWidth * 0.4,
-              ),
-              SizedBox(height: screenHeight * 0.04),
-              const Text(
-                'Welcome to Etqan Center Admin',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontSize: 28,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+        child: SingleChildScrollView( // Add this here
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(height: screenHeight * 0.03),
+                Image.asset(
+                  'assets/etqan.png',
+                  width: screenWidth * 0.4,
+                  height: screenWidth * 0.4,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: screenHeight * 0.04),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  hintText: 'Email',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                SizedBox(height: screenHeight * 0.04),
+                const Text(
+                  'Welcome to Etqan Center Admin',
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 28,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  prefixIcon: const Icon(Icons.email, color: Colors.grey),
+                  textAlign: TextAlign.center,
                 ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  hintText: 'Password',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  prefixIcon: const Icon(Icons.lock, color: Colors.grey),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _showPassword ? Icons.visibility : Icons.visibility_off,
-                      color: Colors.grey,
+                SizedBox(height: screenHeight * 0.04),
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    hintText: 'Email',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _showPassword = !_showPassword;
-                      });
-                    },
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.email, color: Colors.grey),
                   ),
+                  keyboardType: TextInputType.emailAddress,
                 ),
-                obscureText: !_showPassword,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Checkbox(
-                    value: _rememberMe,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        _rememberMe = value ?? false;
-                      });
-                    },
-                    activeColor: Colors.blue,
-                  ),
-                  const Text(
-                    'Remember Me',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.lock, color: Colors.grey),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _showPassword ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showPassword = !_showPassword;
+                        });
+                      },
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                  obscureText: !_showPassword,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                        });
+                      },
+                      activeColor: Colors.blue,
+                    ),
+                    const Text(
+                      'Remember Me',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 40),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
-                ),
-                onPressed: _loginUser,
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 18),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                  onPressed: _loginUser,
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(fontSize: 18),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
                 ),
-                onPressed: _registerUser,
-                child: const Text(
-                  'Register',
-                  style: TextStyle(fontSize: 18),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 40),
+                  ),
+                  onPressed: _registerUser,
+                  child: const Text(
+                    'Register',
+                    style: TextStyle(fontSize: 18),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: _showForgotPasswordDialog,
-                child: const Text(
-                  'Forgot Password?',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+                const SizedBox(height: 7),
+                TextButton(
+                  onPressed: _showForgotPasswordDialog,
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

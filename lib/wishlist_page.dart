@@ -41,11 +41,14 @@ class _WishlistPageState extends State<WishlistPage> {
     final futures = snapshot.docs.map((doc) async {
       final courseName = doc.data()['name'] ?? 'Unknown Course';
 
-      // Fetch the signed users from the course's document
+      // Fetch the signed users and approved users from the course's document
       final List<dynamic> signedUsersByCourse = doc.data()['signedUsers'] ?? [];
+      final List<dynamic> approvedUsersByCourse = doc.data()['ApprovedUsers'] ?? [];
 
-      // Skip courses if the user has already signed up or if the course document indicates so
-      if (signedCoursesByUser.contains(courseName) || signedUsersByCourse.contains(userEmail)) {
+      // Skip courses if the user has already signed up, is approved, or the course document indicates so
+      if (signedCoursesByUser.contains(courseName) ||
+          signedUsersByCourse.contains(userEmail) ||
+          approvedUsersByCourse.contains(userEmail)) {
         return null; // Skip this course
       }
 
@@ -109,7 +112,7 @@ class _WishlistPageState extends State<WishlistPage> {
       'RegisteredCourses': FieldValue.arrayUnion(registeredCoursesData),
     });
 
-    // For each selected course, add the user to PendingUsers in the course document
+    // For each selected course, add the user to signedUsers in the course document
     for (final courseName in selectedCourseNames) {
       await _firestore.collection('Courses').doc(courseName).update({
         'signedUsers': FieldValue.arrayUnion([userEmail]),
@@ -122,8 +125,6 @@ class _WishlistPageState extends State<WishlistPage> {
 
     Navigator.pop(context);
   }
-
-
 
   @override
   Widget build(BuildContext context) {

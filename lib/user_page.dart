@@ -1,8 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'dart:convert';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'login_page.dart';
 import 'bottom_bar.dart';
 import 'course_detailed_page.dart';
@@ -22,11 +26,13 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
+
   String _userName = 'Loading...';
   String _studentId = 'Loading...';
   String? _profileImageUrl;
   List<CustomListItem> _items = [];
   Map<String, String> _courseImages = {};
+  late Map<String, List<dynamic>> _previousSignedUsers = {};
   bool _isLoading = true;
   int _selectedIndex = 0;
   late TabController _tabController;
@@ -35,15 +41,18 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this); // Initialize TabController
+    _tabController = TabController(length: 2, vsync: this); // Initialize TabController
     _initializeData();
     _activateAppCheck();
+    _monitorCourses();
+
   }
 
   @override
   void dispose() {
     _tabController.dispose(); // Dispose of TabController
     super.dispose();
+
   }
 
   Future<void> _initializeData() async {
@@ -53,7 +62,8 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         _fetchUserData(widget.email),
         _fetchCoursesFromFirestore(),
         _fetchCourseImagesFromStorage(),
-        _fetchUserProfileImage(widget.email), // Fetch user's profile image
+        _fetchUserProfileImage(widget.email),
+        // Fetch user's profile image
       ]);
     } catch (e) {
       print('Error initializing data: $e');
@@ -68,6 +78,8 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         androidProvider: AndroidProvider.playIntegrity,
         appleProvider: AppleProvider.deviceCheck,
       );
+      OneSignal.initialize("151302a4-82cd-4872-8135-4d15a4f43a83");
+      OneSignal.Notifications.requestPermission(true);
     } catch (e) {
       print('Error activating Firebase App Check: $e');
     }
@@ -175,6 +187,59 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
+  Future<void> _monitorCourses() async {
+    final loggedInUserEmail = FirebaseAuth.instance.currentUser?.email;
+
+    if (loggedInUserEmail == null) return;
+
+    final coursesStream = _firestore.collection('Courses').snapshots();
+
+    coursesStream.listen((snapshot) {
+      for (var doc in snapshot.docs) {
+        final courseId = doc.id;
+        final approvedUsers = doc.data().containsKey('ApprovedUsers') ? doc['ApprovedUsers'] as List<dynamic> : [];
+        final signedUsers = doc.data().containsKey('signedUsers') ? doc['signedUsers'] as List<dynamic> : [];
+
+        // Compare the logged-in user's email with ApprovedUsers
+        if (approvedUsers.contains(loggedInUserEmail)) {
+          _sendNotification(courseId, 'You have been approved for the course: $courseId');
+        }
+
+        // Update the previousSignedUsers for future comparisons
+        _previousSignedUsers[courseId] = signedUsers;
+      }
+    });
+  }
+
+
+
+
+  Future<void> _sendNotification(String courseId, String message) async {
+    final headers = {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Authorization': 'Basic MGZhZjUwOGQtYmY0NS00ZGEwLWFjZjItNzRmODVlMTMzNTJk',
+    };
+
+    final payload = jsonEncode({
+      "app_id": "151302a4-82cd-4872-8135-4d15a4f43a83",
+      "headings": {"en": "Course"},
+      "contents": {"en": "$message "},
+      "included_segments": ["All"],
+    });
+
+    final response = await http.post(
+      Uri.parse("https://onesignal.com/api/v1/notifications"),
+      headers: headers,
+      body: payload,
+    );
+
+    if (response.statusCode == 200) {
+      print('Notification sent successfully.');
+    } else {
+      print('Failed to send notification. Status code: ${response.statusCode}');
+    }
+  }
+
   void _showOptionsDialog() {
     showDialog(
       context: context,
@@ -230,14 +295,13 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         unselectedColor: Colors.grey,
         barColor: Colors.white,
         end: 0.0,
-        start: 10.0,
+        start: 20.0,
         onTap: _onItemTapped,
         child: TabBarView(
           controller: _tabController,
           children: [
             _buildMainPage(),
             _buildWishlistPage(),
-            _buildProfilePage(),
           ],
         ),
       ),

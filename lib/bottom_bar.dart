@@ -4,7 +4,7 @@ import 'package:flutter/rendering.dart';
 class BottomBar extends StatefulWidget {
   final Widget child;
   final int currentPage;
-  final TabController tabController;
+  final TabController tabController;  // This should have length 2 for two tabs.
   final List<Color> colors;
   final Color unselectedColor;
   final Color barColor;
@@ -31,7 +31,8 @@ class BottomBar extends StatefulWidget {
 
 class _BottomBarState extends State<BottomBar>
     with SingleTickerProviderStateMixin {
-  ScrollController scrollBottomBarController = ScrollController();
+
+  late ScrollController scrollBottomBarController;
   late AnimationController _controller;
   late Animation<Offset> _offsetAnimation;
   bool isScrollingDown = false;
@@ -39,25 +40,45 @@ class _BottomBarState extends State<BottomBar>
 
   @override
   void initState() {
-    myScroll();
+    scrollBottomBarController = ScrollController();
+    myScroll();  // Start monitoring the scroll state
     super.initState();
+
+    // Initialize the AnimationController
     _controller = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+
     _offsetAnimation = Tween<Offset>(
       begin: Offset(0, widget.end),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeIn,
-    ))
-      ..addListener(() {
-        if (mounted) {
-          setState(() {});
-        }
-      });
+    ))..addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     _controller.forward();
+  }
+
+  // Define myScroll method here
+  void myScroll() {
+    scrollBottomBarController.addListener(() {
+      if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (!isScrollingDown) {
+          isScrollingDown = true;
+          hideBottomBar();
+        }
+      } else if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.forward) {
+        if (isScrollingDown) {
+          isScrollingDown = false;
+          showBottomBar();
+        }
+      }
+    });
   }
 
   void showBottomBar() {
@@ -76,30 +97,9 @@ class _BottomBarState extends State<BottomBar>
     }
   }
 
-  Future<void> myScroll() async {
-    scrollBottomBarController.addListener(() {
-      if (scrollBottomBarController.position.userScrollDirection ==
-          ScrollDirection.reverse) {
-        if (!isScrollingDown) {
-          isScrollingDown = true;
-          isOnTop = false;
-          hideBottomBar();
-        }
-      }
-      if (scrollBottomBarController.position.userScrollDirection ==
-          ScrollDirection.forward) {
-        if (isScrollingDown) {
-          isScrollingDown = false;
-          isOnTop = true;
-          showBottomBar();
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
-    scrollBottomBarController.removeListener(() {});
+    scrollBottomBarController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -111,56 +111,6 @@ class _BottomBarState extends State<BottomBar>
       alignment: Alignment.bottomCenter,
       children: [
         widget.child,
-        Positioned(
-          bottom: widget.start,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeIn,
-            width: isOnTop ? 0 : 40,
-            height: isOnTop ? 0 : 40,
-            decoration: BoxDecoration(
-              color: widget.barColor,
-              shape: BoxShape.circle,
-            ),
-            padding: EdgeInsets.zero,
-            margin: EdgeInsets.zero,
-            child: ClipOval(
-              child: Material(
-                color: Colors.transparent,
-                child: SizedBox(
-                  height: 40,
-                  width: 40,
-                  child: Center(
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        scrollBottomBarController
-                            .animateTo(
-                          scrollBottomBarController.position.minScrollExtent,
-                          duration: const Duration(milliseconds: 500),
-                          curve: Curves.easeIn,
-                        )
-                            .then((value) {
-                          if (mounted) {
-                            setState(() {
-                              isOnTop = true;
-                              isScrollingDown = false;
-                            });
-                          }
-                          showBottomBar();
-                        });
-                      },
-                      icon: Icon(
-                        Icons.arrow_upward_rounded,
-                        color: widget.unselectedColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
         Positioned(
           bottom: widget.start,
           child: SlideTransition(
@@ -177,8 +127,7 @@ class _BottomBarState extends State<BottomBar>
                   color: widget.barColor,
                   child: TabBar(
                     onTap: widget.onTap,
-                    indicatorPadding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
-                    controller: widget.tabController,
+                    controller: widget.tabController,  // Ensure this matches the number of tabs.
                     indicator: UnderlineTabIndicator(
                       borderSide: BorderSide(
                         color: widget.colors[widget.currentPage],
@@ -204,21 +153,9 @@ class _BottomBarState extends State<BottomBar>
                         width: 40,
                         child: Center(
                           child: Icon(
-                            Icons.search,
+                            Icons.person,
                             color: widget.currentPage == 1
                                 ? widget.colors[1]
-                                : widget.unselectedColor,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 55,
-                        width: 40,
-                        child: Center(
-                          child: Icon(
-                            Icons.add,
-                            color: widget.currentPage == 2
-                                ? widget.colors[2]
                                 : widget.unselectedColor,
                           ),
                         ),

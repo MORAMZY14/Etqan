@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -17,10 +18,13 @@ import 'approval_admin_page.dart';
 class AdminPage extends StatefulWidget {
   final String email;
 
+
   const AdminPage({super.key, required this.email});
 
   @override
   _AdminPageState createState() => _AdminPageState();
+
+
 }
 
 class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMixin {
@@ -37,7 +41,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _initializeData();
     _activateAppCheck();
     _monitorCourses();
@@ -152,6 +156,11 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _monitorCourses() async {
+
+    final loggedInUserEmail = FirebaseAuth.instance.currentUser?.email;
+
+    if (loggedInUserEmail == null) return;
+
     final coursesStream = _firestore.collection('Courses').snapshots();
     coursesStream.listen((snapshot) {
       for (var doc in snapshot.docs) {
@@ -198,7 +207,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
 
     final payload = jsonEncode({
       "app_id": "151302a4-82cd-4872-8135-4d15a4f43a83",
-      "headings": {"en": "Course Update"},
+      "headings": {"en": "New Registration"},
       "contents": {"en": "$message for course $courseId"},
       "included_segments": ["All"],
     });
@@ -238,7 +247,6 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
           controller: _tabController,
           children: [
             _buildMainPage(),
-            _buildAdminActionsPage(),
             _buildProfilePage(),
           ],
         ),
@@ -449,7 +457,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
 
   Widget _buildTrendingCoursesSection(bool isSmallScreen) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('Courses').where('status', isEqualTo: 'trendy').snapshots(),
+      stream: _firestore.collection('Courses').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
