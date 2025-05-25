@@ -61,10 +61,20 @@ def flutter_install_ios_plugin_pods(ios_application_path = nil)
   end
 end
 
+
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['']
+      config.build_settings['OTHER_SWIFT_FLAGS'] << '-enable-experimental-feature AccessLevelOnImport'
+    end
+  end
+end
+
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
-  pod 'PhoneNumberKit', '~> 3.3'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
