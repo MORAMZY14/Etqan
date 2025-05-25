@@ -29,7 +29,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Course Management'),
-        backgroundColor: Colors.blue, // Changed from teal to blue
+        backgroundColor: Colors.blue,
       ),
       body: SafeArea(
         child: Column(
@@ -62,13 +62,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                             backgroundImage: NetworkImage(imageUrl),
                             backgroundColor: Colors.grey.shade200,
                             radius: 30,
-                            onBackgroundImageError: (error, stackTrace) {
-                              // handle image loading error
-                            },
                           ),
-                          title: Text(course['name'],
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Status: ${course['status']}'),
+                          title: Text(course['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              'Status: ${course['status']}\nPrice: ${course['price'] ?? 'N/A'}'),
+                          isThreeLine: true,
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -108,7 +106,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
               padding: const EdgeInsets.all(16.0),
               child: FloatingActionButton(
                 onPressed: _showAddCourseDialog,
-                backgroundColor: Colors.blue, // Changed from teal to blue
+                backgroundColor: Colors.blue,
                 child: const Icon(Icons.add),
               ),
             ),
@@ -131,39 +129,21 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         final statusController = TextEditingController();
         final durationController = TextEditingController();
         final totalStudentsController = TextEditingController();
+        final priceController = TextEditingController();
         File? selectedImage;
-        bool isUploading = false;
-        double uploadProgress = 0;
 
         return AlertDialog(
           title: const Text('Add New Course'),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Course Name'),
-                ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                ),
-                TextField(
-                  controller: durationController,
-                  decoration: const InputDecoration(labelText: 'Duration'),
-                ),
-                TextField(
-                  controller: totalStudentsController,
-                  decoration: const InputDecoration(labelText: 'Total Students'),
-                  keyboardType: TextInputType.number,
-                ),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Course Name')),
+                TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Description')),
+                TextField(controller: statusController, decoration: const InputDecoration(labelText: 'Status')),
+                TextField(controller: durationController, decoration: const InputDecoration(labelText: 'Duration')),
+                TextField(controller: totalStudentsController, decoration: const InputDecoration(labelText: 'Total Students'), keyboardType: TextInputType.number),
+                TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
                 const SizedBox(height: 10),
-                const Text('No image selected.'),
                 ElevatedButton(
                   onPressed: () async {
                     try {
@@ -183,51 +163,29 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.isEmpty ||
                     descriptionController.text.isEmpty ||
                     statusController.text.isEmpty ||
                     durationController.text.isEmpty ||
-                    totalStudentsController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill in all fields.')),
-                  );
+                    totalStudentsController.text.isEmpty ||
+                    priceController.text.isEmpty ||
+                    selectedImage == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields.')));
                   return;
                 }
 
-                if (selectedImage == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select an image.')),
-                  );
-                  return;
-                }
-
-                setState(() {
-                  isUploading = true;
-                });
                 await _addCourse(
                   nameController.text,
                   descriptionController.text,
                   statusController.text,
                   durationController.text,
                   int.tryParse(totalStudentsController.text) ?? 0,
+                  double.tryParse(priceController.text) ?? 0.0,
                   selectedImage!,
-                      (progress) {
-                    setState(() {
-                      uploadProgress = progress;
-                    });
-                  },
                 );
-                setState(() {
-                  isUploading = false;
-                });
                 Navigator.of(context).pop();
                 _showUploadSuccessDialog();
               },
@@ -245,35 +203,25 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       String status,
       String duration,
       int totalStudents,
+      double price,
       File imageFile,
-      void Function(double) onProgress,
       ) async {
     try {
       final courseId = name;
       final newCourseRef = _firestore.collection('Courses').doc(courseId);
 
-      // Add course data
       await newCourseRef.set({
         'name': name,
         'description': description,
         'status': status,
         'duration': duration,
         'totalStudents': totalStudents,
+        'price': price,
       });
 
-      // Upload image
       final imageRef = _storage.ref('courses/$courseId/$courseId.png');
-      final uploadTask = imageRef.putFile(imageFile);
-
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = (snapshot.bytesTransferred / snapshot.totalBytes);
-        onProgress(progress);
-      });
-
-      await uploadTask.whenComplete(() => print('Image uploaded successfully!'));
-
-      final downloadUrl = await imageRef.getDownloadURL();
-      print('Image URL: $downloadUrl');
+      await imageRef.putFile(imageFile);
+      await imageRef.getDownloadURL();
     } catch (e) {
       print('Error adding course: $e');
     }
@@ -282,27 +230,23 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   void _showUploadSuccessDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Upload Successful'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 50),
-              SizedBox(height: 10),
-              Text('The course has been added successfully.'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Upload Successful'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 50),
+            SizedBox(height: 10),
+            Text('The course has been added successfully.'),
           ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -315,44 +259,24 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         final statusController = TextEditingController(text: course['status']);
         final durationController = TextEditingController(text: course['duration']);
         final totalStudentsController = TextEditingController(text: course['totalStudents'].toString());
+        final priceController = TextEditingController(text: course['price'].toString());
 
         return AlertDialog(
           title: const Text('Edit Course'),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Course Name'),
-                ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                ),
-                TextField(
-                  controller: durationController,
-                  decoration: const InputDecoration(labelText: 'Duration'),
-                ),
-                TextField(
-                  controller: totalStudentsController,
-                  decoration: const InputDecoration(labelText: 'Total Students'),
-                  keyboardType: TextInputType.number,
-                ),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Course Name')),
+                TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Description')),
+                TextField(controller: statusController, decoration: const InputDecoration(labelText: 'Status')),
+                TextField(controller: durationController, decoration: const InputDecoration(labelText: 'Duration')),
+                TextField(controller: totalStudentsController, decoration: const InputDecoration(labelText: 'Total Students'), keyboardType: TextInputType.number),
+                TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
               ],
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
                 await _updateCourse(
@@ -362,6 +286,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   statusController.text,
                   durationController.text,
                   int.tryParse(totalStudentsController.text) ?? 0,
+                  double.tryParse(priceController.text) ?? 0.0,
                 );
                 Navigator.of(context).pop();
               },
@@ -380,6 +305,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       String status,
       String duration,
       int totalStudents,
+      double price,
       ) async {
     try {
       await _firestore.collection('Courses').doc(courseId).update({
@@ -388,6 +314,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         'status': status,
         'duration': duration,
         'totalStudents': totalStudents,
+        'price': price,
       });
       print('Course updated successfully!');
     } catch (e) {

@@ -17,14 +17,11 @@ void main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   try {
-    // Initialize Firebase
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
-
-    // Run the app after Firebase is initialized
     runApp(MyApp(homePage: await getInitialPage()));
   } catch (e) {
     print('Error initializing Firebase: $e');
@@ -51,6 +48,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: homePage,
     );
   }
@@ -77,6 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> fetchDataFromFirestore() async {
     try {
       final querySnapshot = await _firestore.collection('Paragraphs').get();
+      if (!mounted) return; // ✅ Prevent setState if widget is disposed
       setState(() {
         items = querySnapshot.docs.map((doc) {
           return CustomListItem(doc['Name'], doc['Content']);
@@ -86,6 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Error getting documents: $error');
     }
   }
+
 
   Future<void> _showPasswordDialog() async {
     final TextEditingController passwordController = TextEditingController();
@@ -181,6 +181,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -191,70 +194,72 @@ class _MyHomePageState extends State<MyHomePage> {
             fit: BoxFit.cover,
           ),
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            children: <Widget>[
-              Container(
-                margin: const EdgeInsets.only(top: 40.0, left: 20.0),
-                child: const Text(
-                  'Hello, Guest',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'sans-serif-black',
-                    fontSize: 24.0,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: Center(
+                    child: Text(
+                      'Hello, Guest',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'sans-serif-black',
+                        fontSize: isSmallScreen ? 20.0 : 24.0,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: MediaQuery.of(context).size.height - 35.0,
-                child: Column(
-                  children: <Widget>[
-                    Stack(
-                      children: [
-                        SingleChildScrollView(
-                          controller: _scrollController,
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: <Widget>[
-                              buildCard(context, Icons.login, 'Login', const LoginPage()),
-                              buildCard(context, Icons.tour, 'Tour', const TourPage()),
-                              buildCard(context, Icons.app_registration, 'Register', const RegisterPage()),
-                              buildCard(context, Icons.admin_panel_settings, 'Admin', null),
-                              buildCard(context, Icons.info, 'About', const AboutPage()),
-                            ],
-                          ),
-                        ),
-                        if (kIsWeb)
-                          Positioned.fill(
+                SizedBox(
+                  height: screenSize.height * 0.85,
+                  child: Column(
+                    children: <Widget>[
+                      Stack(
+                        children: [
+                          SingleChildScrollView(
+                            controller: _scrollController,
+                            scrollDirection: Axis.horizontal,
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                GestureDetector(
-                                  behavior: HitTestBehavior.translucent,
-                                  onTap: _scrollLeft,
-                                  child: Container(
-                                    width: 30.0,
-                                    height: double.infinity,
-                                    color: Colors.transparent,
-                                  ),
-                                ),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.translucent,
-                                  onTap: _scrollRight,
-                                  child: Container(
-                                    width: 30.0,
-                                    height: double.infinity,
-                                    color: Colors.transparent,
-                                  ),
-                                ),
+                              children: <Widget>[
+                                buildCard(context, Icons.login, 'Login', const LoginPage()),
+                                buildCard(context, Icons.tour, 'Tour', const TourPage()),
+                                buildCard(context, Icons.app_registration, 'Register', const RegisterPage()),
+                                buildCard(context, Icons.admin_panel_settings, 'Admin', null),
+                                buildCard(context, Icons.info, 'About', const AboutPage()),
                               ],
                             ),
                           ),
-                      ],
-                    ),
-                    Container(
-                      margin: const EdgeInsets.only(top: 10.0, left: 0.0),
-                      child: const Text(
+                          if (kIsWeb)
+                            Positioned.fill(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _scrollLeft,
+                                    child: Container(
+                                      width: 30.0,
+                                      height: double.infinity,
+                                      color: Colors.transparent,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _scrollRight,
+                                    child: Container(
+                                      width: 30.0,
+                                      height: double.infinity,
+                                      color: Colors.transparent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10.0),
+                      const Text(
                         'Announcements',
                         style: TextStyle(
                           color: Colors.white,
@@ -262,48 +267,51 @@ class _MyHomePageState extends State<MyHomePage> {
                           fontSize: 24.0,
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: fetchDataFromFirestore,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(top: 0.0),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                              elevation: 5.0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.all(16.0),
-                                title: Text(
-                                  items[index].name,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: fetchDataFromFirestore,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.only(top: 0.0),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              return Card(
+                                margin: EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: isSmallScreen ? 8.0 : 16.0,
+                                ),
+                                elevation: 5.0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.all(16.0),
+                                  title: Text(
+                                    items[index].name,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
+                                  subtitle: Text(
+                                    items[index].content.length > 100
+                                        ? '${items[index].content.substring(0, 100)}...'
+                                        : items[index].content,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  onTap: () {
+                                    showContentDialog(items[index].name, items[index].content);
+                                  },
                                 ),
-                                subtitle: Text(
-                                  items[index].content.length > 100
-                                      ? '${items[index].content.substring(0, 100)}...'
-                                      : items[index].content,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                onTap: () {
-                                  showContentDialog(items[index].name, items[index].content);
-                                },
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -311,6 +319,9 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   GestureDetector buildCard(BuildContext context, IconData icon, String label, Widget? targetPage) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return GestureDetector(
       onTap: () {
         if (targetPage != null) {
@@ -320,8 +331,8 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       },
       child: Container(
-        width: 150.0,
-        height: 150.0,
+        width: isSmallScreen ? 120.0 : 150.0,
+        height: isSmallScreen ? 120.0 : 150.0,
         margin: const EdgeInsets.all(10.0),
         decoration: BoxDecoration(
           color: const Color(0xFF333366),
@@ -337,14 +348,14 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(icon, color: Colors.white, size: 50.0),
+            Icon(icon, color: Colors.white, size: isSmallScreen ? 40.0 : 50.0),
             const SizedBox(height: 10.0),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontFamily: 'sans-serif-black',
-                fontSize: 20.0,
+                fontSize: isSmallScreen ? 16.0 : 20.0,
               ),
             ),
           ],

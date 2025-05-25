@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -16,54 +20,54 @@ class _WishlistPageState extends State<WishlistPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   late Future<List<Map<String, dynamic>>> _coursesFuture;
   final Set<String> _selectedCourses = <String>{};
+  File? _paymentScreenshot;
+  String _paymentLink = '';
 
   @override
   void initState() {
     super.initState();
     _coursesFuture = _fetchCourses();
+    _fetchPaymentLink();
+  }
+
+  Future<void> _fetchPaymentLink() async {
+    final doc = await _firestore.collection('Settings').doc('Payment').get();
+    setState(() {
+      _paymentLink = doc.data()?['link'] ?? '';
+    });
   }
 
   Future<List<Map<String, dynamic>>> _fetchCourses() async {
     final user = _auth.currentUser;
-    if (user == null) {
-      print('User not logged in');
-      return [];
-    }
+    if (user == null) return [];
 
     final userEmail = user.email!;
-
-    // Fetch the user's signed courses from the user's document
     final userDoc = await _firestore.collection('Users').doc(userEmail).get();
     final List<dynamic> signedCoursesByUser = userDoc.data()?['courses'] ?? [];
 
-    // Fetch all courses from the Courses collection
     final snapshot = await _firestore.collection('Courses').get();
     final futures = snapshot.docs.map((doc) async {
       final courseName = doc.data()['name'] ?? 'Unknown Course';
-
-      // Fetch the signed users and approved users from the course's document
       final List<dynamic> signedUsersByCourse = doc.data()['signedUsers'] ?? [];
       final List<dynamic> approvedUsersByCourse = doc.data()['ApprovedUsers'] ?? [];
 
-      // Skip courses if the user has already signed up, is approved, or the course document indicates so
       if (signedCoursesByUser.contains(courseName) ||
           signedUsersByCourse.contains(userEmail) ||
           approvedUsersByCourse.contains(userEmail)) {
-        return null; // Skip this course
+        return null;
       }
 
-      // Fetch the course image URL
       final imageUrl = await _getCourseImageUrl(courseName);
+      final coursePrice = doc.data()['price'] ?? 0;
+
       return {
         'name': courseName,
         'imageUrl': imageUrl,
+        'price': coursePrice,
       };
     }).toList();
 
-    // Wait for all the futures to complete
     final courses = await Future.wait(futures);
-
-    // Filter out any null values
     return courses.where((course) => course != null).cast<Map<String, dynamic>>().toList();
   }
 
@@ -72,7 +76,6 @@ class _WishlistPageState extends State<WishlistPage> {
       final ref = _storage.ref().child('courses/$courseName/$courseName.png');
       return await ref.getDownloadURL();
     } catch (e) {
-      print('Error fetching image URL for $courseName: $e');
       return '';
     }
   }
@@ -87,19 +90,90 @@ class _WishlistPageState extends State<WishlistPage> {
     });
   }
 
+  void _showPaymentDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Required'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please pay using the link below:'),
+            const SizedBox(height: 10),
+            SelectableText(_paymentLink, style: const TextStyle(color: Colors.blue)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showScreenshotUploadDialog();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScreenshotUploadDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Upload Payment Screenshot'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _paymentScreenshot == null
+                  ? const Text('No screenshot selected')
+                  : Image.file(_paymentScreenshot!, height: 150),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                  if (pickedFile != null) {
+                    setState(() {
+                      _paymentScreenshot = File(pickedFile.path);
+                    });
+                  }
+                },
+                child: const Text('Choose Screenshot'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _paymentScreenshot = null;
+              },
+              child: const Text('Quit'),
+            ),
+            ElevatedButton(
+              onPressed: _paymentScreenshot == null ? null : () {
+                Navigator.pop(context);
+                _registerCourses();
+              },
+              child: const Text('Proceed'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _registerCourses() async {
     final user = _auth.currentUser;
-    if (user == null) {
-      print('User not logged in');
-      return;
-    }
+    if (user == null) return;
 
     final userEmail = user.email!;
     final userDoc = _firestore.collection('Users').doc(userEmail);
     final selectedCourseNames = _selectedCourses.toList();
-    final registrationDate = DateTime.now(); // Current date and time
+    final registrationDate = DateTime.now();
 
-    // Prepare the registered course data for the user's document
     final List<Map<String, dynamic>> registeredCoursesData = selectedCourseNames.map((courseName) {
       return {
         'courseName': courseName,
@@ -107,12 +181,10 @@ class _WishlistPageState extends State<WishlistPage> {
       };
     }).toList();
 
-    // Update user's document: add registered courses and dates
     await userDoc.update({
       'RegisteredCourses': FieldValue.arrayUnion(registeredCoursesData),
     });
 
-    // For each selected course, add the user to signedUsers in the course document
     for (final courseName in selectedCourseNames) {
       await _firestore.collection('Courses').doc(courseName).update({
         'signedUsers': FieldValue.arrayUnion([userEmail]),
@@ -123,7 +195,9 @@ class _WishlistPageState extends State<WishlistPage> {
       const SnackBar(content: Text('Courses registered successfully! Awaiting admin approval.')),
     );
 
-    Navigator.pop(context);
+    setState(() {
+      _selectedCourses.clear();
+    });
   }
 
   @override
@@ -151,6 +225,7 @@ class _WishlistPageState extends State<WishlistPage> {
               final course = courses[index];
               final courseName = course['name'] ?? 'Unknown Course';
               final courseImageUrl = course['imageUrl'] ?? '';
+              final coursePrice = course['price'] ?? 0;
 
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8),
@@ -162,9 +237,18 @@ class _WishlistPageState extends State<WishlistPage> {
                     radius: 30,
                     backgroundImage: courseImageUrl.isNotEmpty ? NetworkImage(courseImageUrl) : null,
                     backgroundColor: Colors.grey.shade200,
-                    child: courseImageUrl.isEmpty ? const Icon(Icons.image, size: 30, color: Colors.grey) : null,
+                    child: courseImageUrl.isEmpty
+                        ? const Icon(Icons.image, size: 30, color: Colors.grey)
+                        : null,
                   ),
-                  title: Text(courseName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  title: Text(
+                    courseName,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    '\$${coursePrice.toString()}',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
                   trailing: Checkbox(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                     value: _selectedCourses.contains(courseName),
@@ -179,7 +263,7 @@ class _WishlistPageState extends State<WishlistPage> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _registerCourses,
+        onPressed: _selectedCourses.isEmpty ? null : _showPaymentDialog,
         label: const Text('Register', style: TextStyle(fontSize: 16)),
         icon: const Icon(Icons.check),
       ),
