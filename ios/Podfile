@@ -65,21 +65,19 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  pod 'PhoneNumberKit', '~> 3.3'
+  pod 'PhoneNumberKit', '~> 3.3'      # ✅ Needed by libphonenumber_plugin
+  pod 'Firebase/Core'                 # ✅ Ensures Firebase base is linked
+  pod 'Firebase/Storage'             # ✅ Needed to avoid GTMSessionFetcherCore issue
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ✅ Combined post_install block
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
-      # 👇 Fix for AccessLevelOnImport Swift Compiler Error
       config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['']
       config.build_settings['OTHER_SWIFT_FLAGS'] << '-enable-experimental-feature AccessLevelOnImport'
     end
-
-    # 👇 Flutter additional iOS build settings
     flutter_additional_ios_build_settings(target)
   end
 end
