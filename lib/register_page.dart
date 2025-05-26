@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:libphonenumber/libphonenumber.dart';
 import 'login_page.dart';
-import 'package:intl_phone_number_input/intl_phone_number_input.dart';
-
-import 'login_page.dart'; // For country code picker
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -27,8 +25,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _universityController = TextEditingController();
   final TextEditingController _branchController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
-  String _selectedDialCode = '+20';
+  String _selectedCountryCode = 'EG'; // ISO country code (Egypt default)
+  String _formattedPhoneNumber = '';
   bool _isRegisterButtonEnabled = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -38,7 +38,6 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _agreeToTerms = false;
 
   Uint8List? _selectedImageBytes;
-  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'EG'); // Default to Egypt
 
   @override
   void initState() {
@@ -49,6 +48,19 @@ class _RegisterPageState extends State<RegisterPage> {
     _confirmPasswordController.addListener(_checkFields);
     _universityController.addListener(_checkFields);
     _branchController.addListener(_checkFields);
+    _phoneController.addListener(_checkFields);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _universityController.dispose();
+    _branchController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   void _checkFields() {
@@ -63,14 +75,42 @@ class _RegisterPageState extends State<RegisterPage> {
           _confirmPasswordController.text.isNotEmpty &&
           _universityController.text.isNotEmpty &&
           _branchController.text.isNotEmpty &&
+          _phoneController.text.isNotEmpty &&
           _isGmail &&
-          _passwordsMatch;
+          _passwordsMatch &&
+          _agreeToTerms;
     });
   }
 
   Future<void> _registerUser() async {
     if (!_agreeToTerms) {
       _showAgreementDialog();
+      return;
+    }
+
+    // Validate and format phone number before proceeding
+    try {
+      bool? isValid = await PhoneNumberUtil.isValidPhoneNumber(
+        phoneNumber: _phoneController.text.trim(),
+        isoCode: _selectedCountryCode,
+      );
+
+      if (isValid != true) {  // Handle null or false cases
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid phone number')),
+        );
+        return;
+      }
+
+      _formattedPhoneNumber = (await PhoneNumberUtil.normalizePhoneNumber(
+        phoneNumber: _phoneController.text.trim(),
+        isoCode: _selectedCountryCode,
+      )) ?? _phoneController.text.trim(); // Fallback to original if null
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Phone number error: ${e.toString()}')),
+      );
       return;
     }
 
@@ -112,11 +152,14 @@ class _RegisterPageState extends State<RegisterPage> {
       final newUser = {
         'email': userEmail,
         'name': _nameController.text.trim(),
-        'phone': _phoneNumber.phoneNumber, // Capture phone with country code
+        'phone': _formattedPhoneNumber,
         'university': _universityController.text.trim(),
         'branch': _branchController.text.trim(),
         'studentID': studentID,
         'Status': 'New',
+        'profilePictureUrl': _selectedImageBytes != null
+            ? 'users/$userEmail/profile_picture.png'
+            : null,
       };
 
       if (_selectedImageBytes != null) {
@@ -135,7 +178,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       final uploadTask = storageRef.putData(_selectedImageBytes!);
-      await uploadTask.whenComplete(() => null);
+      await uploadTask;
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Failed to upload profile picture: ${e.toString()}'),
@@ -162,6 +205,134 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  void _showAgreementDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Agree to Terms'),
+          content:
+          const Text('Please agree to the terms and conditions to register.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Registration Successful'),
+          content: const Text('You have been registered successfully!'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    IconData? prefixIcon,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+    String? errorText,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+        errorText: errorText,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget _buildPhoneNumberField() {
+    return Row(
+      children: [
+        DropdownButton<String>(
+          value: _selectedCountryCode,
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() {
+                _selectedCountryCode = newValue;
+                _checkFields();
+              });
+            }
+          },
+          items: const [
+            DropdownMenuItem(value: 'EG', child: Text('Egypt +20')),
+            DropdownMenuItem(value: 'US', child: Text('USA +1')),
+            DropdownMenuItem(value: 'IN', child: Text('India +91')),
+          ],
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: 'Phone Number',
+              hintText: 'Enter your phone number',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.phone),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required bool obscureText,
+    required VoidCallback onTapVisibilityIcon,
+    IconData? prefixIcon,
+    String? errorText,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+        suffixIcon: IconButton(
+          icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
+          onPressed: onTapVisibilityIcon,
+        ),
+        errorText: errorText,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isSmallScreen = MediaQuery.of(context).size.width < 600;
@@ -185,27 +356,39 @@ class _RegisterPageState extends State<RegisterPage> {
                   isSmallScreen ? screenWidth * 0.05 : screenWidth * 0.04),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [
                   BoxShadow(
-                    color: Colors.grey[300]!,
-                    blurRadius: 20.0,
-                    offset: const Offset(0, 10),
+                    color: Colors.grey,
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  GestureDetector(
+                  InkWell(
                     onTap: _pickImage,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage: _selectedImageBytes != null
-                          ? MemoryImage(_selectedImageBytes!)
-                          : null,
+                    child: Container(
+                      height: 100,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey),
+                        image: _selectedImageBytes != null
+                            ? DecorationImage(
+                          image: MemoryImage(_selectedImageBytes!),
+                          fit: BoxFit.cover,
+                        )
+                            : null,
+                      ),
                       child: _selectedImageBytes == null
-                          ? const Icon(Icons.person, size: 50)
+                          ? const Icon(
+                        Icons.add_a_photo,
+                        size: 30,
+                        color: Colors.grey,
+                      )
                           : null,
                     ),
                   ),
@@ -213,16 +396,17 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildTextField(
                     controller: _emailController,
                     labelText: 'Email',
-                    hintText: 'Enter your email',
+                    hintText: 'Enter your Gmail',
                     prefixIcon: Icons.email,
-                    errorText: !_isGmail ? 'Email must be Gmail' : null,
+                    errorText:
+                    _isGmail ? null : 'Please enter a valid Gmail address',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 20),
                   _buildTextField(
                     controller: _nameController,
                     labelText: 'Name',
-                    hintText: 'Enter your name',
+                    hintText: 'Enter your full name',
                     prefixIcon: Icons.person,
                   ),
                   const SizedBox(height: 20),
@@ -231,7 +415,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildTextField(
                     controller: _universityController,
                     labelText: 'University',
-                    hintText: 'Enter your university name',
+                    hintText: 'Enter your university',
                     prefixIcon: Icons.school,
                   ),
                   const SizedBox(height: 20),
@@ -239,7 +423,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     controller: _branchController,
                     labelText: 'Branch',
                     hintText: 'Enter your branch',
-                    prefixIcon: Icons.location_city,
+                    prefixIcon: Icons.account_tree,
                   ),
                   const SizedBox(height: 20),
                   _buildPasswordField(
@@ -258,37 +442,53 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildPasswordField(
                     controller: _confirmPasswordController,
                     labelText: 'Confirm Password',
-                    hintText: 'Re-enter your password',
+                    hintText: 'Confirm your password',
                     obscureText: _obscureConfirmPassword,
-                    errorText: !_passwordsMatch ? 'Passwords do not match' : null,
                     onTapVisibilityIcon: () {
                       setState(() {
                         _obscureConfirmPassword = !_obscureConfirmPassword;
                       });
                     },
                     prefixIcon: Icons.lock,
+                    errorText:
+                    _passwordsMatch ? null : 'Passwords do not match',
                   ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
                       Checkbox(
                         value: _agreeToTerms,
-                        onChanged: (value) {
+                        onChanged: (bool? value) {
                           setState(() {
                             _agreeToTerms = value ?? false;
+                            _checkFields();
                           });
                         },
                       ),
-                      const Text('I agree to the terms and conditions'),
+                      const Expanded(
+                        child: Text(
+                          'I agree to the terms and conditions',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: _isRegisterButtonEnabled
+                    onPressed: _isRegisterButtonEnabled && !_isLoading
                         ? _registerUser
                         : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
                     child: _isLoading
-                        ? const CircularProgressIndicator()
+                        ? const CircularProgressIndicator(
+                      color: Colors.white,
+                    )
                         : const Text('Register'),
                   ),
                 ],
@@ -297,117 +497,6 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    IconData? prefixIcon,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-    String? errorText,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
-        prefixIcon: Icon(prefixIcon),
-        errorText: errorText,
-        border: const OutlineInputBorder(),
-      ),
-    );
-  }
-
-  Widget _buildPhoneNumberField() {
-    return InternationalPhoneNumberInput(
-      onInputChanged: (PhoneNumber number) {
-        _phoneNumber = number;
-      },
-      initialValue: _phoneNumber,
-      selectorConfig: const SelectorConfig(
-        selectorType: PhoneInputSelectorType.DROPDOWN,
-      ),
-      textFieldController: TextEditingController(),
-      formatInput: false,
-      inputDecoration: const InputDecoration(
-        labelText: 'Phone Number',
-        hintText: 'Enter your phone number',
-        prefixIcon: Icon(Icons.phone),
-        border: OutlineInputBorder(),
-      ),
-    );
-  }
-
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    required bool obscureText,
-    required VoidCallback onTapVisibilityIcon,
-    IconData? prefixIcon,
-    String? errorText,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
-        prefixIcon: Icon(prefixIcon),
-        suffixIcon: IconButton(
-          icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-          onPressed: onTapVisibilityIcon,
-        ),
-        errorText: errorText,
-        border: const OutlineInputBorder(),
-      ),
-    );
-  }
-
-  Future<void> _showAgreementDialog() async {
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Agree to Terms'),
-          content: const Text('Please agree to the terms and conditions to register.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showSuccessDialog() async {
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Registration Successful'),
-          content: const Text('You have been registered successfully!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
