@@ -65,9 +65,8 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  pod 'PhoneNumberKit', '~> 3.3'      # ✅ Needed by libphonenumber_plugin
-  pod 'Firebase/Core'                 # ✅ Ensures Firebase base is linked
-  pod 'Firebase/Storage'             # ✅ Needed to avoid GTMSessionFetcherCore issue
+  # Plugin-specific manual pod (PhoneNumberKit)
+  pod 'PhoneNumberKit', '~> 3.3'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
