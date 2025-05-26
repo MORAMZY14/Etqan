@@ -67,6 +67,7 @@ target 'Runner' do
 
   # Plugin-specific manual pod (PhoneNumberKit)
   pod 'PhoneNumberKit', '~> 3.3'
+  pod 'GTMSessionFetcher/Core', '~> 3.1'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
