@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:libphonenumber/libphonenumber.dart';
+import 'package:libphonenumber_plugin/libphonenumber_plugin.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -27,7 +27,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _branchController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  String _selectedCountryCode = 'EG'; // ISO country code (Egypt default)
+  String _selectedCountryCode = 'EG';
   String _formattedPhoneNumber = '';
   bool _isRegisterButtonEnabled = false;
   bool _isLoading = false;
@@ -88,207 +88,149 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    // Validate and format phone number before proceeding
     try {
+      // Validate phone number with positional arguments
       bool? isValid = await PhoneNumberUtil.isValidPhoneNumber(
-        phoneNumber: _phoneController.text.trim(),
-        isoCode: _selectedCountryCode,
+        _phoneController.text.trim(),  // phoneNumber (position 1)
+        _selectedCountryCode,          // isoCode (position 2)
       );
 
-      if (isValid != true) {  // Handle null or false cases
+      if (isValid != true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid phone number')),
         );
         return;
       }
 
-      _formattedPhoneNumber = (await PhoneNumberUtil.normalizePhoneNumber(
-        phoneNumber: _phoneController.text.trim(),
-        isoCode: _selectedCountryCode,
-      )) ?? _phoneController.text.trim(); // Fallback to original if null
+      // Format phone number with positional arguments
+      String? formatted = await PhoneNumberUtil.normalizePhoneNumber(
+        _phoneController.text.trim(),  // phoneNumber (position 1)
+        _selectedCountryCode,          // isoCode (position 2)
+      );
+
+      _formattedPhoneNumber = formatted ?? _phoneController.text.trim();
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Phone number error: ${e.toString()}')),
+        SnackBar(content: Text('Phone error: ${e.toString()}')),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final UserCredential userCredential = await _firebaseAuth
-          .createUserWithEmailAndPassword(
+      final UserCredential userCredential =
+      await _firebaseAuth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      final User? user = userCredential.user;
-      if (user != null) {
+      if (userCredential.user != null) {
         await _createUser();
       }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Registration failed: ${e.message}'),
-      ));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Registration failed: ${e.toString()}'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed: ${e.message}')),
+      );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _createUser() async {
-    final User? user = _firebaseAuth.currentUser;
-    if (user != null) {
-      final String userEmail = user.email!;
-      final String studentID = await _generateStudentID();
-      final newUser = {
-        'email': userEmail,
-        'name': _nameController.text.trim(),
-        'phone': _formattedPhoneNumber,
-        'university': _universityController.text.trim(),
-        'branch': _branchController.text.trim(),
-        'studentID': studentID,
-        'Status': 'New',
-        'profilePictureUrl': _selectedImageBytes != null
-            ? 'users/$userEmail/profile_picture.png'
-            : null,
-      };
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return;
 
-      if (_selectedImageBytes != null) {
-        await _uploadProfilePicture(userEmail);
-      }
+    final userData = {
+      'email': user.email,
+      'name': _nameController.text.trim(),
+      'phone': _formattedPhoneNumber,
+      'university': _universityController.text.trim(),
+      'branch': _branchController.text.trim(),
+      'studentID': await _generateStudentID(),
+      'Status': 'New',
+      'profilePictureUrl': _selectedImageBytes != null
+          ? 'users/${user.email}/profile.jpg'
+          : null,
+    };
 
-      await _firestore.collection('Users').doc(userEmail).set(newUser);
-
-      _showSuccessDialog();
+    if (_selectedImageBytes != null) {
+      await _uploadProfilePicture(user.email!);
     }
+
+    await _firestore.collection('Users').doc(user.email).set(userData);
+    _showSuccessDialog();
   }
 
-  Future<void> _uploadProfilePicture(String userEmail) async {
-    final storageRef = _firebaseStorage.ref().child(
-        'users/$userEmail/profile_picture.png');
-
+  Future<void> _uploadProfilePicture(String email) async {
     try {
-      final uploadTask = storageRef.putData(_selectedImageBytes!);
-      await uploadTask;
+      final ref = _firebaseStorage.ref('users/$email/profile.jpg');
+      await ref.putData(_selectedImageBytes!);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Failed to upload profile picture: ${e.toString()}'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload image: $e')),
+      );
     }
   }
 
   Future<String> _generateStudentID() async {
-    final year = DateTime.now().year.toString();
-    final studentDocs = await _firestore.collection('Users').get();
-    final nextId = (studentDocs.docs.length + 1).toString().padLeft(4, '0');
-    return '$year$nextId';
+    final snapshot = await _firestore.collection('Users').get();
+    return '${DateTime.now().year}${(snapshot.docs.length + 1).toString().padLeft(4, '0')}';
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker _picker = ImagePicker();
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (image == null) return;
 
-    if (image != null) {
-      final imageBytes = await image.readAsBytes();
-      setState(() {
-        _selectedImageBytes = imageBytes;
-      });
-    }
+    final bytes = await image.readAsBytes();
+    setState(() => _selectedImageBytes = bytes);
   }
 
-  void _showAgreementDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Agree to Terms'),
-          content:
-          const Text('Please agree to the terms and conditions to register.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  void _showAgreementDialog() => showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Agreement Required'),
+      content: const Text('You must agree to the terms to register'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        )
+      ],
+    ),
+  );
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Registration Successful'),
-          content: const Text('You have been registered successfully!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    IconData? prefixIcon,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-    String? errorText,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-        errorText: errorText,
-        border: const OutlineInputBorder(),
-      ),
-    );
-  }
+  void _showSuccessDialog() => showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Success'),
+      content: const Text('Registration successful!'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+          ),
+          child: const Text('Continue'),
+        )
+      ],
+    ),
+  );
 
   Widget _buildPhoneNumberField() {
     return Row(
       children: [
         DropdownButton<String>(
           value: _selectedCountryCode,
-          onChanged: (String? newValue) {
-            if (newValue != null) {
-              setState(() {
-                _selectedCountryCode = newValue;
-                _checkFields();
-              });
-            }
-          },
           items: const [
             DropdownMenuItem(value: 'EG', child: Text('Egypt +20')),
             DropdownMenuItem(value: 'US', child: Text('USA +1')),
             DropdownMenuItem(value: 'IN', child: Text('India +91')),
           ],
+          onChanged: (value) => setState(() {
+            if (value != null) _selectedCountryCode = value;
+          }),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -297,9 +239,8 @@ class _RegisterPageState extends State<RegisterPage> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Phone Number',
-              hintText: 'Enter your phone number',
-              border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.phone),
+              border: OutlineInputBorder(),
             ),
           ),
         ),
@@ -307,195 +248,149 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    required bool obscureText,
-    required VoidCallback onTapVisibilityIcon,
-    IconData? prefixIcon,
-    String? errorText,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-        suffixIcon: IconButton(
-          icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-          onPressed: onTapVisibilityIcon,
+  @override
+  Widget build(BuildContext context) {
+    final isSmall = MediaQuery.of(context).size.width < 600;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Register'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(isSmall ? 16 : 24),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: _pickImage,
+              child: CircleAvatar(
+                radius: 50,
+                backgroundColor: Colors.grey[200],
+                backgroundImage: _selectedImageBytes != null
+                    ? MemoryImage(_selectedImageBytes!)
+                    : null,
+                child: _selectedImageBytes == null
+                    ? const Icon(Icons.add_a_photo, size: 40)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              controller: _emailController,
+              label: 'Email',
+              icon: Icons.email,
+              isEmail: true,
+              errorText: _isGmail ? null : 'Must be a Gmail address',
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _nameController,
+              label: 'Full Name',
+              icon: Icons.person,
+            ),
+            const SizedBox(height: 16),
+            _buildPhoneNumberField(),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _universityController,
+              label: 'University',
+              icon: Icons.school,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _branchController,
+              label: 'Branch',
+              icon: Icons.architecture,
+            ),
+            const SizedBox(height: 16),
+            _buildPasswordField(
+              controller: _passwordController,
+              label: 'Password',
+              isConfirm: false,
+            ),
+            const SizedBox(height: 16),
+            _buildPasswordField(
+              controller: _confirmPasswordController,
+              label: 'Confirm Password',
+              isConfirm: true,
+            ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              title: const Text('I agree to the terms and conditions'),
+              value: _agreeToTerms,
+              onChanged: (v) => setState(() => _agreeToTerms = v ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isRegisterButtonEnabled && !_isLoading
+                    ? _registerUser
+                    : null,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Register'),
+              ),
+            ),
+          ],
         ),
-        errorText: errorText,
-        border: const OutlineInputBorder(),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bool isSmallScreen = MediaQuery.of(context).size.width < 600;
-    final double screenWidth = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      appBar: AppBar(
-        title: const Text('Register'),
-        centerTitle: true,
-        backgroundColor: Colors.grey[200],
-        elevation: 0,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isEmail = false,
+    String? errorText,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
+        errorText: errorText,
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isSmallScreen ? 50.0 : 90.0),
-            child: Container(
-              width: isSmallScreen ? screenWidth * 0.95 : screenWidth * 0.7,
-              padding: EdgeInsets.all(
-                  isSmallScreen ? screenWidth * 0.05 : screenWidth * 0.04),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.grey,
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    onTap: _pickImage,
-                    child: Container(
-                      height: 100,
-                      width: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey),
-                        image: _selectedImageBytes != null
-                            ? DecorationImage(
-                          image: MemoryImage(_selectedImageBytes!),
-                          fit: BoxFit.cover,
-                        )
-                            : null,
-                      ),
-                      child: _selectedImageBytes == null
-                          ? const Icon(
-                        Icons.add_a_photo,
-                        size: 30,
-                        color: Colors.grey,
-                      )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    hintText: 'Enter your Gmail',
-                    prefixIcon: Icons.email,
-                    errorText:
-                    _isGmail ? null : 'Please enter a valid Gmail address',
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _nameController,
-                    labelText: 'Name',
-                    hintText: 'Enter your full name',
-                    prefixIcon: Icons.person,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildPhoneNumberField(),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _universityController,
-                    labelText: 'University',
-                    hintText: 'Enter your university',
-                    prefixIcon: Icons.school,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _branchController,
-                    labelText: 'Branch',
-                    hintText: 'Enter your branch',
-                    prefixIcon: Icons.account_tree,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(
-                    controller: _passwordController,
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
-                    obscureText: _obscurePassword,
-                    onTapVisibilityIcon: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    prefixIcon: Icons.lock,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(
-                    controller: _confirmPasswordController,
-                    labelText: 'Confirm Password',
-                    hintText: 'Confirm your password',
-                    obscureText: _obscureConfirmPassword,
-                    onTapVisibilityIcon: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
-                    },
-                    prefixIcon: Icons.lock,
-                    errorText:
-                    _passwordsMatch ? null : 'Passwords do not match',
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _agreeToTerms,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            _agreeToTerms = value ?? false;
-                            _checkFields();
-                          });
-                        },
-                      ),
-                      const Expanded(
-                        child: Text(
-                          'I agree to the terms and conditions',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _isRegisterButtonEnabled && !_isLoading
-                        ? _registerUser
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(
-                      color: Colors.white,
-                    )
-                        : const Text('Register'),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool isConfirm,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isConfirm ? _obscureConfirmPassword : _obscurePassword,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.lock),
+        suffixIcon: IconButton(
+          icon: Icon(isConfirm
+              ? _obscureConfirmPassword
+              ? Icons.visibility_off
+              : Icons.visibility
+              : _obscurePassword
+              ? Icons.visibility_off
+              : Icons.visibility),
+          onPressed: () => setState(() {
+            if (isConfirm) {
+              _obscureConfirmPassword = !_obscureConfirmPassword;
+            } else {
+              _obscurePassword = !_obscurePassword;
+            }
+          }),
         ),
+        border: const OutlineInputBorder(),
+        errorText: isConfirm && !_passwordsMatch
+            ? 'Passwords do not match'
+            : null,
       ),
     );
   }
