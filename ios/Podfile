@@ -34,6 +34,7 @@ target 'Runner' do
   # Add explicitly required pods
   pod 'Firebase/Functions'
   pod 'GTMSessionFetcher/Core' # <- This is the critical missing module
+  pod 'PhoneNumberKit'
 end
 
 post_install do |installer|
