@@ -24,6 +24,7 @@ jobs:
           rm -rf ios/Pods ios/Podfile.lock
           pod cache clean --all
 
+      # ✅ Move pod install BELOW flutter pub get
       - name: Install CocoaPods
         run: pod install
         working-directory: ios
