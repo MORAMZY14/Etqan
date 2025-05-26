@@ -5,7 +5,6 @@ on:
 
 jobs:
   build-ios:
-    name: 🎉 iOS Build
     runs-on: macos-latest
 
     steps:
@@ -18,9 +17,6 @@ jobs:
           channel: stable
           architecture: x64
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
-
       - name: Clean build artifacts
         run: |
           flutter clean
@@ -28,9 +24,13 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Install CocoaPods
-        run: pod install
-        working-directory: ios
+      - name: Get Flutter dependencies (after cleaning)
+        run: flutter pub get
+
+      # Optional: remove this step, flutter build ios runs pod install automatically
+      # - name: Install CocoaPods
+      #   run: pod install
+      #   working-directory: ios
 
       - name: Build iOS app (Release)
         run: flutter build ios --release --no-codesign
