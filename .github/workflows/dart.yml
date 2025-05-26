@@ -14,10 +14,11 @@ jobs:
         with:
           channel: 'stable'
           architecture: x64
-      - run: flutter pub get
-      
 
-      - run: pod repo update
+      - run: flutter pub get
+
+      - run: rm -rf ios/Pods ios/Podfile.lock
+      - run: pod install
         working-directory: ios
 
       - run: flutter build ios --release --no-codesign
@@ -32,11 +33,4 @@ jobs:
         run: zip -qq -r -9 Etqan.ipa Payload
         working-directory: build/ios/iphoneos
 
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Etqan.ipa
-          tag: v2.0
-          overwrite: true
-          body: "This is second release"
+      - name: Upload binar
