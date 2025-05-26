@@ -25,59 +25,34 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-def create_symlink(source, target)
-  if Gem.win_platform?
-    system("mklink /D \"#{target}\" \"#{source}\"")
-  else
-    FileUtils.ln_s(source, target, force: true)
-  end
-end
-
-def flutter_install_ios_plugin_pods(ios_application_path = nil)
-  ios_application_path ||= File.dirname(defined_in_file.realpath) if self.respond_to?(:defined_in_file)
-  raise 'Could not find iOS application path' unless ios_application_path
-
-  symlink_dir = File.expand_path('.symlinks', ios_application_path)
-  FileUtils.rm_rf(symlink_dir)
-
-  symlink_plugins_dir = File.expand_path('plugins', symlink_dir)
-  FileUtils.mkdir_p(symlink_plugins_dir)
-
-  plugins_file = File.join(ios_application_path, '..', '.flutter-plugins-dependencies')
-  plugin_pods = flutter_parse_plugins_file(plugins_file)
-  plugin_pods.each do |plugin_hash|
-    plugin_name = plugin_hash['name']
-    plugin_path = plugin_hash['path']
-    if plugin_name && plugin_path
-      symlink = File.join(symlink_plugins_dir, plugin_name)
-      create_symlink(plugin_path, symlink)
-
-      if plugin_name == 'flutter_ffmpeg'
-        pod 'flutter_ffmpeg/full-lts', :path => File.join('.symlinks', 'plugins', plugin_name, 'ios')
-      else
-        pod plugin_name, :path => File.join('.symlinks', 'plugins', plugin_name, 'ios')
-      end
-    end
-  end
-end
-
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
   use_modular_headers!
 
-  # Plugin-specific manual pod (PhoneNumberKit)
+  # PhoneNumberKit manual addition
   pod 'PhoneNumberKit', '~> 3.3'
-  pod 'GTMSessionFetcher/Core', '~> 3.1'
 
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  # Optional: Explicit Firebase pods if Flutter plugins don’t resolve them correctly
+  # If Firebase Functions or Storage fails due to missing modules like GTMSessionFetcherCore,
+  # uncomment these:
+  # pod 'Firebase/Core'
+  # pod 'Firebase/Functions'
+  # pod 'FirebaseStorage'
+  # pod 'GTMSessionFetcher/Core'
+
+  flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
+      config.build_settings['SWIFT_VERSION'] = '5.0'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
       config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['']
       config.build_settings['OTHER_SWIFT_FLAGS'] << '-enable-experimental-feature AccessLevelOnImport'
     end
+
     flutter_additional_ios_build_settings(target)
   end
 end
