@@ -7,46 +7,54 @@ jobs:
   build-ios:
     name: 🎉 iOS Build
     runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           architecture: x64
 
-      - name: Get Flutter packages
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Clean Flutter and CocoaPods
+      - name: Clean derived data, pods, and symlinks
         run: |
           flutter clean
-          rm -rf ios/Pods ios/Podfile.lock
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
-          rm -rf ios/.symlinks
 
-      # ❌ REMOVE manual pod install
-      # ✅ Let `flutter build ios` handle CocoaPods
-      - name: Build iOS release (no codesign)
+      - name: Run Flutter build to generate .xcconfig
+        run: flutter build ios --release --no-codesign
+
+      - name: Re-run pod install explicitly
+        run: pod install
+        working-directory: ios
+
+      - name: Rebuild to ensure GTMSessionFetcherCore is linked
         run: flutter build ios --release --no-codesign
 
       - name: Create Payload folder
         run: mkdir Payload
         working-directory: build/ios/iphoneos
 
-      - name: Move app to Payload
+      - name: Move Runner.app to Payload
         run: mv Runner.app Payload
         working-directory: build/ios/iphoneos
 
-      - name: Zip output
+      - name: Zip the .ipa file
         run: zip -qq -r -9 Etqan.ipa Payload
         working-directory: build/ios/iphoneos
 
-      - name: Upload IPA to GitHub Release
+      - name: Upload to GitHub Releases
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/ios/iphoneos/Etqan.ipa
           tag: v2.0
           overwrite: true
-          body: "This is second release"
+          body: "iOS release v2.0"
