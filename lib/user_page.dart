@@ -97,7 +97,7 @@ class _UserPageState extends State<UserPage> {
   Future<void> _fetchUserData(String email) async {
     try {
       final DocumentSnapshot doc =
-      await _firestore.collection('Users').doc(email.toLowerCase()).get();
+      await _firestore.collection('Students').doc(email.toLowerCase()).get();
 
       final String name = doc['name']?.toString() ?? 'Unknown User';
       final String studentId = doc['studentID']?.toString() ?? 'N/A';

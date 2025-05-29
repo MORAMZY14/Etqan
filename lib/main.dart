@@ -105,6 +105,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 }
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
 
@@ -318,19 +319,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
+  // FIXED NAVIGATION: Using MaterialPageRoute for proper swipe-back support
   void _navigateToPage(Widget page, String routeName) {
     _animationController.forward().then((_) {
       Navigator.push(
         context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300),
+        MaterialPageRoute(
+          builder: (context) => page,
           settings: RouteSettings(name: routeName),
         ),
       ).then((_) => _animationController.reverse());
@@ -383,14 +378,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ),
 
-              // Feature Grid - Made more compact
+              // Feature Grid
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 3, // Changed to 3 columns for more compact layout
-                  childAspectRatio: 1.0, // More square aspect ratio
+                  crossAxisCount: 3,
+                  childAspectRatio: 1.0,
                   padding: const EdgeInsets.all(8),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
@@ -439,12 +434,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ),
 
-              // Announcements Section - Made larger
+              // Announcements Section
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Announcements Header with refresh button
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                       child: Row(
@@ -468,7 +462,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       ),
                     ),
 
-                    // Announcements List - Takes majority of screen space
                     Expanded(
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -553,24 +546,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             }
           },
           child: Padding(
-            padding: const EdgeInsets.all(12), // Reduced padding for compact layout
+            padding: const EdgeInsets.all(12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10), // Smaller icon container
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 24), // Smaller icon size
+                  child: Icon(icon, size: 24),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   label,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    fontSize: 14, // Smaller font size
+                    fontSize: 14,
                   ),
                 ),
               ],

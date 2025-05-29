@@ -18,13 +18,10 @@ import 'approval_admin_page.dart';
 class AdminPage extends StatefulWidget {
   final String email;
 
-
   const AdminPage({super.key, required this.email});
 
   @override
   _AdminPageState createState() => _AdminPageState();
-
-
 }
 
 class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMixin {
@@ -122,29 +119,34 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: const Color(0xFF1E1F2B),
           contentPadding: EdgeInsets.zero,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _logout();
-                },
-              ),
+              _buildOptionTile(Icons.settings, 'Settings', () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
+              }),
+              _buildOptionTile(Icons.logout, 'Logout', () {
+                Navigator.pop(context);
+                _logout();
+              }),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildOptionTile(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white70),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
     );
   }
 
@@ -156,9 +158,7 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _monitorCourses() async {
-
     final loggedInUserEmail = FirebaseAuth.instance.currentUser?.email;
-
     if (loggedInUserEmail == null) return;
 
     final coursesStream = _firestore.collection('Courses').snapshots();
@@ -168,25 +168,19 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         final signedUsers = doc['signedUsers'] as List<dynamic>? ?? [];
         final approvedUsers = doc['ApprovedUsers'] as List<dynamic>? ?? [];
 
-        // Compare with previously stored signedUsers and approvedUsers
         if (_previousSignedUsers.containsKey(courseId)) {
           final previousSignedUsers = _previousSignedUsers[courseId] ?? [];
-
-          // Determine new and removed users
           final newUsers = signedUsers.where((user) => !previousSignedUsers.contains(user)).toList();
           final removedUsers = previousSignedUsers.where((user) => !signedUsers.contains(user)).toList();
 
           if (newUsers.isNotEmpty) {
-            // Notify about new registrations
             for (var user in newUsers) {
               _sendNotification(courseId, 'New Student Registered: $user');
             }
           }
 
           if (removedUsers.isNotEmpty) {
-            // Notify about unregistrations
             for (var user in removedUsers) {
-              // Check if the user is still in approvedUsers
               if (!approvedUsers.contains(user)) {
                 _sendNotification(courseId, 'Student Has Unregistered: $user');
               }
@@ -228,18 +222,23 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F111E),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+        ),
+      )
           : BottomBarAdmin(
         currentPage: _selectedIndex,
         tabController: _tabController,
         colors: const [
-          Colors.blue,
-          Colors.red,
-          Colors.green,
+          Color(0xFF6C63FF),
+          Color(0xFF4CAF50),
+          Color(0xFF2196F3),
         ],
-        unselectedColor: Colors.grey,
-        barColor: Colors.white,
+        unselectedColor: const Color(0xFF2D2F3E),
+        barColor: const Color(0xFF1E1F2B),
         end: 0.0,
         start: 10.0,
         onTap: _onItemTapped,
@@ -255,32 +254,454 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
   }
 
   Widget _buildMainPage() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
     return SingleChildScrollView(
       child: Column(
         children: [
-          _buildTopSection(isSmallScreen),
-          const SizedBox(height: 20),
-          _buildCategoryButtons(isSmallScreen),
-          const SizedBox(height: 20),
-          _buildTrendingCoursesSection(isSmallScreen),
+          _buildTopSection(),
+          const SizedBox(height: 24),
+          _buildCategoryGrid(),
+          const SizedBox(height: 24),
+          _buildTrendingCoursesSection(),
+          const SizedBox(height: 24),
+          _buildRecentActivity(),
+          const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  Widget _buildAdminActionsPage() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
-    return SingleChildScrollView(
+  Widget _buildTopSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E1F2B),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAdminActionsSection(isSmallScreen),
-          const SizedBox(height: 20),
-          _buildCourseManagementSection(isSmallScreen),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Welcome back,',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Dr. $_userName!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.white),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    onPressed: _showOptionsDialog,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D2F3E),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const TextField(
+              decoration: InputDecoration(
+                hintText: 'Search courses, students...',
+                hintStyle: TextStyle(color: Colors.white54),
+                border: InputBorder.none,
+                suffixIcon: Icon(Icons.search, color: Colors.white54),
+              ),
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryGrid() {
+    final categories = [
+      {
+        'title': 'Courses',
+        'icon': Icons.menu_book,
+        'color': const Color(0xFF6C63FF),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CourseManagementPage()),
+        ),
+      },
+      {
+        'title': 'Announce',
+        'icon': Icons.notifications,
+        'color': const Color(0xFFFF6B6B),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) =>  AnnouncementsPage()),
+        ),
+      },
+      {
+        'title': 'Approval',
+        'icon': Icons.check_circle,
+        'color': const Color(0xFF4CAF50),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ApproveRequestsPage()),
+        ),
+      },
+      {
+        'title': 'Payments',
+        'icon': Icons.payment,
+        'color': const Color(0xFFFFA726),
+        'onTap': () {},
+      },
+      {
+        'title': 'Users',
+        'icon': Icons.people,
+        'color': const Color(0xFF26C6DA),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) =>  AdminsUserEditPage()),
+        ),
+      },
+      {
+        'title': 'Settings',
+        'icon': Icons.settings,
+        'color': const Color(0xFF9C27B0),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SettingsPage()),
+        ),
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.9,
+      ),
+      itemCount: categories.length,
+      itemBuilder: (context, index) {
+        final category = categories[index];
+        return GestureDetector(
+          onTap: category['onTap'] as void Function(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1F2B),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: category['color'] as Color,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    category['icon'] as IconData,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  category['title'] as String,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTrendingCoursesSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Trending Courses',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'View All',
+                style: TextStyle(
+                  color: Color(0xFF6C63FF),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('Courses').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+                      ));
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No courses available',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  final courses = snapshot.data!.docs;
+                  return ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: courses.length,
+                    itemBuilder: (context, index) {
+                      final course = courses[index];
+                      final imageUrl = _getImageUrl(course.id);
+                      return Container(
+                        width: 280,
+                        margin: const EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1F2B),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(16),
+                                  topRight: Radius.circular(16),
+                                ),
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: const Color(0xFF2D2F3E),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: const Color(0xFF2D2F3E),
+                                      child: const Center(
+                                        child: Icon(Icons.image, color: Color(0xFF6C63FF)),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    course['name'] ?? 'Unnamed Course',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.people, size: 14, color: Colors.white70),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${course['signedUsers']?.length ?? 0} students',
+                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Recent Activity',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1F2B),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  Icons.person_add,
+                  'New student registration',
+                  'Sarah Johnson registered for "Advanced Flutter"',
+                  '2 min ago',
+                  Colors.blue,
+                ),
+                _buildActivityItem(
+                  Icons.check_circle,
+                  'Course approved',
+                  '"UI/UX Design Fundamentals" approved by Dr. Ahmed',
+                  '30 min ago',
+                  Colors.green,
+                ),
+                _buildActivityItem(
+                  Icons.notifications,
+                  'Announcement posted',
+                  'New announcement: Mid-term exam schedule',
+                  '1 hour ago',
+                  Colors.orange,
+                ),
+                _buildActivityItem(
+                  Icons.payment,
+                  'Payment received',
+                  'Payment of \$120 received from Mohamed Ali',
+                  '3 hours ago',
+                  Colors.purple,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(IconData icon, String title, String description, String time, Color color) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            time,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -288,309 +709,14 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
 
   Widget _buildProfilePage() {
     return const Center(
-      child: Text('Profile Page', style: TextStyle(fontSize: 24)),
-    );
-  }
-
-  Widget _buildTopSection(bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 20 : 40,
-        vertical: isSmallScreen ? 30 : 50,
+      child: Text(
+        'Profile Page',
+        style: TextStyle(color: Colors.white, fontSize: 24),
       ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF160E30),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(30),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreetingAndNotificationIcon(isSmallScreen),
-          const SizedBox(height: 20),
-          Text(
-            'Manage your courses here!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: isSmallScreen ? 24 : 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildSearchBar(isSmallScreen),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGreetingAndNotificationIcon(bool isSmallScreen) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: isSmallScreen ? 25 : 30,
-              backgroundImage: const AssetImage('assets/etqan.png'),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello, Dr. $_userName!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 18 : 24,
-                  ),
-                ),
-                Text(
-                  'ID: $_adminId',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 12 : 16,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        IconButton(
-          icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: _showOptionsDialog,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchBar(bool isSmallScreen) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const TextField(
-        decoration: InputDecoration(
-          hintText: 'Search',
-          border: InputBorder.none,
-          suffixIcon: Icon(Icons.search, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryButtons(bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildCategoryButton('Courses', Icons.book, Colors.blue, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>   CourseManagementPage()),
-                );
-              }),
-              _buildCategoryButton('Announce', Icons.notifications, Colors.red, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>   AnnouncementsPage()),
-                );
-              }),
-              _buildCategoryButton('Approval', Icons.check, Colors.green, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>   ApproveRequestsPage()),
-                );
-              }),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildCategoryButton('Payments', Icons.payment, Colors.orange, () {}),
-              _buildCategoryButton('Users', Icons.people, Colors.purple, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>   AdminsUserEditPage()),
-                );
-              }),
-              _buildCategoryButton('Settings', Icons.settings, Colors.grey, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>  const SettingsPage()),
-                );
-              }),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryButton(String title, IconData icon, Color color, VoidCallback onPressed) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(height: 5),
-            Text(title, style: const TextStyle(color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTrendingCoursesSection(bool isSmallScreen) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('Courses').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No trending courses available.'));
-        }
-
-        final courses = snapshot.data!.docs;
-
-        return Container(
-          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Trending Courses',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 18 : 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: isSmallScreen ? 200 : 250,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: courses.length,
-                  itemBuilder: (context, index) {
-                    final course = courses[index];
-                    final imageUrl = _getImageUrl(course.id);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Card(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Image.network(imageUrl, fit: BoxFit.cover, height: 120, width: 160),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(course['name']),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
   String _getImageUrl(String courseId) {
     return 'https://firebasestorage.googleapis.com/v0/b/${_storage.bucket}/o/courses%2F$courseId%2F$courseId.png?alt=media';
-  }
-
-  Widget _buildAdminActionsSection(bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 20 : 40,
-        vertical: isSmallScreen ? 20 : 40,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Admin Actions',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 18 : 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildActionButton('Add New Course', Icons.add, Colors.blue, () {
-            // Add your functionality here
-          }),
-          const SizedBox(height: 10),
-          _buildActionButton('Manage Courses', Icons.manage_search, Colors.green, () {
-            // Add your functionality here
-          }),
-          const SizedBox(height: 10),
-          _buildActionButton('View Announcements', Icons.announcement, Colors.orange, () {
-            // Add your functionality here
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCourseManagementSection(bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 20 : 40,
-        vertical: isSmallScreen ? 20 : 40,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Course Management',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 18 : 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildActionButton('Manage Courses', Icons.school, Colors.blue, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CourseManagementPage()),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white),
-      label: Text(title, style: const TextStyle(color: Colors.white)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        minimumSize: const Size(double.infinity, 50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
   }
 }

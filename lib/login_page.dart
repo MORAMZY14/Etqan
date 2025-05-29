@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'register_page.dart';
 import 'user_page.dart';
@@ -13,6 +14,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _rememberMe = false;
@@ -36,6 +38,16 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  Future<bool> _isStudent(String email) async {
+    try {
+      final doc = await _firestore.collection('Students').doc(email).get();
+      return doc.exists;
+    } catch (e) {
+      print('Error checking student status: $e');
+      return false;
+    }
+  }
+
   Future<void> _loginUser() async {
     setState(() {
       _isLoading = true;
@@ -55,13 +67,26 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
+      // 1. Authenticate user
       UserCredential userCredential = await _firebaseAuth
           .signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Handle successful login
+      // 2. Verify student status
+      bool isStudent = await _isStudent(email);
+
+      if (!isStudent) {
+        // Sign out non-student users immediately
+        await _firebaseAuth.signOut();
+        throw FirebaseAuthException(
+          code: 'not-student',
+          message: 'You are not registered as a student',
+        );
+      }
+
+      // 3. Handle successful login
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setString('email', email);
@@ -82,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Authentication failed: ${e.message}')),
+        SnackBar(content: Text('Authentication failed: ${e.message ?? 'Unknown error'}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
