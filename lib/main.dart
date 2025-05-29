@@ -15,7 +15,6 @@ import 'user_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
   try {
     if (Firebase.apps.isEmpty) {
@@ -41,34 +40,71 @@ Future<Widget> getInitialPage() async {
   return MyHomePage();
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final Widget homePage;
 
   const MyApp({super.key, required this.homePage});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _updateSystemUIOverlayStyle();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    _updateSystemUIOverlayStyle();
+  }
+
+  void _updateSystemUIOverlayStyle() {
+    final brightness = WidgetsBinding.instance.window.platformBrightness;
+    SystemChrome.setSystemUIOverlayStyle(
+      brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
-          brightness: Brightness.dark,
-        ),
-        fontFamily: 'Inter',
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      themeMode: ThemeMode.system,
+      home: widget.homePage,
+    );
+  }
+
+  ThemeData _buildTheme(Brightness brightness) {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF6C63FF),
+        brightness: brightness,
       ),
-      home: homePage,
+      fontFamily: 'Inter',
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 }
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
 
@@ -242,8 +278,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: Dialog(
               backgroundColor: Theme.of(context).colorScheme.surface,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
+                  borderRadius: BorderRadius.circular(24)),
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
@@ -305,6 +340,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       body: Container(
@@ -347,17 +383,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ),
 
-              // Feature Grid
+              // Feature Grid - Made more compact
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.2,
+                  crossAxisCount: 3, // Changed to 3 columns for more compact layout
+                  childAspectRatio: 1.0, // More square aspect ratio
                   padding: const EdgeInsets.all(8),
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
                   children: [
                     _buildFeatureCard(
                       context,
@@ -403,47 +439,76 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ),
 
-              // Announcements Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-                child: Row(
+              // Announcements Section - Made larger
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Announcements',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    // Announcements Header with refresh button
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Announcements',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () {
+                              setState(() => _isLoading = true);
+                              fetchDataFromFirestore();
+                            },
+                            tooltip: 'Refresh',
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () {
-                        setState(() => _isLoading = true);
-                        fetchDataFromFirestore();
-                      },
-                      tooltip: 'Refresh',
+
+                    // Announcements List - Takes majority of screen space
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.9),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : RefreshIndicator(
+                          onRefresh: fetchDataFromFirestore,
+                          child: items.isEmpty
+                              ? Center(
+                            child: Text(
+                              'No announcements yet',
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          )
+                              : ListView.builder(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              return _buildAnnouncementCard(
+                                context,
+                                items[index].name,
+                                items[index].content,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-              ),
-
-              // Announcements List
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : RefreshIndicator(
-                  onRefresh: fetchDataFromFirestore,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      return _buildAnnouncementCard(
-                        context,
-                        items[index].name,
-                        items[index].content,
-                      );
-                    },
-                  ),
                 ),
               ),
             ],
@@ -488,23 +553,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             }
           },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12), // Reduced padding for compact layout
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10), // Smaller icon container
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 28),
+                  child: Icon(icon, size: 24), // Smaller icon size
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   label,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w500,
+                    fontSize: 14, // Smaller font size
                   ),
                 ),
               ],
@@ -533,59 +599,78 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         );
       },
-      child: Card(
-        elevation: 1,
-        margin: const EdgeInsets.only(bottom: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => showContentDialog(title, content),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => showContentDialog(title, content),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  content.length > 100
-                      ? '${content.substring(0, 100)}...'
-                      : content,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                if (content.length > 100)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Read more',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    content.length > 150
+                        ? '${content.substring(0, 150)}...'
+                        : content,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  if (content.length > 150)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Read more',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

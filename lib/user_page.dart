@@ -9,7 +9,6 @@ import 'dart:convert';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'login_page.dart';
-import 'bottom_bar.dart';
 import 'course_detailed_page.dart';
 import 'wishlist_page.dart';
 import 'show_courses_users_page.dart';
@@ -23,34 +22,47 @@ class UserPage extends StatefulWidget {
   _UserPageState createState() => _UserPageState();
 }
 
-class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin {
+class _UserPageState extends State<UserPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   String _userName = 'Loading...';
   String _studentId = 'Loading...';
+  String _userEmail = '';
   String? _profileImageUrl;
   List<CustomListItem> _items = [];
   Map<String, String> _courseImages = {};
-  late Map<String, List<dynamic>> _previousSignedUsers = {};
   bool _isLoading = true;
+  bool _isEditingProfile = false;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _idController = TextEditingController();
+
+  // Modern bottom navigation items
   int _selectedIndex = 0;
-  late TabController _tabController;
-  String _selectedCategory = 'All';
+  final List<BottomNavigationBarItem> _navItems = [
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home_outlined),
+      activeIcon: Icon(Icons.home),
+      label: 'Home',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.favorite_border),
+      activeIcon: Icon(Icons.favorite),
+      label: 'Wishlist',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline),
+      activeIcon: Icon(Icons.person),
+      label: 'Profile',
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _userEmail = widget.email;
     _initializeData();
     _activateAppCheck();
-    _monitorCourses();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _initializeData() async {
@@ -91,8 +103,10 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       final String studentId = doc['studentID']?.toString() ?? 'N/A';
 
       setState(() {
-        _userName = _getFirstName(name);
+        _userName = name;
         _studentId = studentId;
+        _nameController.text = name;
+        _idController.text = studentId;
       });
     } catch (e) {
       setState(() {
@@ -100,11 +114,6 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
         _studentId = 'ID: N/A';
       });
     }
-  }
-
-  String _getFirstName(String fullName) {
-    final parts = fullName.split(' ').where((part) => part.isNotEmpty).toList();
-    return parts.isNotEmpty ? parts.first : 'User';
   }
 
   Future<void> _fetchUserProfileImage(String email) async {
@@ -117,12 +126,43 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _fetchCoursesFromFirestore({String? status}) async {
-    try {
-      Query query = _firestore.collection('Courses');
-      if (status != null) query = query.where('status', isEqualTo: status);
+  Future<void> _updateUserProfile() async {
+    if (_nameController.text.isEmpty || _idController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Name and ID cannot be empty')),
+      );
+      return;
+    }
 
-      final QuerySnapshot snapshot = await query.get();
+    setState(() => _isLoading = true);
+    try {
+      await _firestore.collection('Users').doc(_userEmail.toLowerCase()).update({
+        'name': _nameController.text,
+        'studentID': _idController.text,
+      });
+
+      setState(() {
+        _userName = _nameController.text;
+        _studentId = _idController.text;
+        _isEditingProfile = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profile updated successfully')),
+      );
+    } catch (e) {
+      print('Error updating profile: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchCoursesFromFirestore() async {
+    try {
+      final QuerySnapshot snapshot = await _firestore.collection('Courses').get();
       final List<CustomListItem> courses = snapshot.docs.map((doc) {
         return CustomListItem(
           name: doc['name']?.toString() ?? 'Unnamed Course',
@@ -133,6 +173,17 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       setState(() => _items = courses);
     } catch (e) {
       print('Error fetching courses: $e');
+      // Add fallback to show all courses on error
+      if (_items.isEmpty) {
+        final fallbackSnapshot = await _firestore.collection('Courses').get();
+        final fallbackCourses = fallbackSnapshot.docs.map((doc) {
+          return CustomListItem(
+            name: doc['name']?.toString() ?? 'Unnamed Course',
+            content: doc['content']?.toString() ?? '',
+          );
+        }).toList();
+        setState(() => _items = fallbackCourses);
+      }
     }
   }
 
@@ -169,82 +220,45 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Future<void> _monitorCourses() async {
-    final userEmail = FirebaseAuth.instance.currentUser?.email;
-    if (userEmail == null) return;
-
-    _firestore.collection('Courses').snapshots().listen((snapshot) {
-      for (var doc in snapshot.docs) {
-        final approved = doc['ApprovedUsers'] as List<dynamic>? ?? [];
-        if (approved.contains(userEmail)) {
-          _sendNotification(doc.id, 'Approved for course: ${doc.id}');
-        }
-        _previousSignedUsers[doc.id] = doc['signedUsers'] as List<dynamic>? ?? [];
-      }
-    });
-  }
-
-  Future<void> _sendNotification(String courseId, String message) async {
-    try {
-      final response = await http.post(
-        Uri.parse("https://onesignal.com/api/v1/notifications"),
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': 'Basic MGZhZjUwOGQtYmY0NS00ZGEwLWFjZjItNzRmODVlMTMzNTJk',
-        },
-        body: jsonEncode({
-          "app_id": "151302a4-82cd-4872-8135-4d15a4f43a83",
-          "headings": {"en": "Course Update"},
-          "contents": {"en": message},
-          "included_segments": ["All"],
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        print('Notification failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Notification error: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _isLoading
           ? _buildShimmerLoader()
-          : BottomBar(
-        currentPage: _selectedIndex,
-        tabController: _tabController,
-        colors: const [Colors.blueAccent, Colors.deepPurpleAccent],
-        unselectedColor: Colors.grey[400]!,
-        barColor: Colors.white,
-        start: 20.0,  // Fixed parameter
-        end: 0.0,     // Fixed parameter
-        onTap: _onItemTapped,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildMainContent(),
-            _buildWishlistContent(),
-          ],
-        ),
-      ),
+          : _buildCurrentPage(),
+      bottomNavigationBar: _buildModernBottomBar(),
+      floatingActionButton: _selectedIndex == 0 ? _buildFloatingActionButtons() : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
+  }
+
+  Widget _buildCurrentPage() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildMainContent();
+      case 1:
+        return _buildWishlistContent();
+      case 2:
+        return _buildProfileContent();
+      default:
+        return _buildMainContent();
+    }
   }
 
   Widget _buildMainContent() {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          expandedHeight: 200,
-          flexibleSpace: _buildProfileHeader(),
+          expandedHeight: 150,
+          flexibleSpace: _buildAppBarHeader(),
           pinned: true,
+          backgroundColor: Colors.blue[800],
         ),
         SliverPadding(
           padding: const EdgeInsets.all(20),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
+              const SizedBox(height: 10),
               _buildCategoryFilter(),
               const SizedBox(height: 25),
               _buildCourseGrid(),
@@ -255,61 +269,23 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildAppBarHeader() {
     return FlexibleSpaceBar(
+      title: Text(
+        'Courses',
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+        ),
+      ),
+      centerTitle: true,
       background: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blue[800]!, Colors.blue[400]!],
+            colors: [Colors.blue[800]!, Colors.blue[600]!],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-          child: Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 32,
-                  backgroundImage: _profileImageUrl != null
-                      ? NetworkImage(_profileImageUrl!)
-                      : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello, $_userName',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'ID: $_studentId',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white),
-                onPressed: _showSettingsDialog,
-              ),
-            ],
           ),
         ),
       ),
@@ -317,19 +293,20 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCategoryFilter() {
+    final categories = ['All', 'Popular', 'New'];
     return SizedBox(
       height: 45,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: ['All', 'Popular', 'New'].length,
+        itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final category = ['All', 'Popular', 'New'][index];
-          final isSelected = _selectedCategory == category;
+          final category = categories[index];
+          final isSelected = category == 'All';
           return ChoiceChip(
             label: Text(category),
             selected: isSelected,
-            onSelected: (_) => _updateCategory(category),
+            onSelected: (_) => {},
             labelStyle: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
               color: isSelected ? Colors.white : Colors.blue[800],
@@ -342,9 +319,90 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  void _updateCategory(String category) {
-    setState(() => _selectedCategory = category);
-    _fetchCoursesFromFirestore(status: category == 'All' ? null : category);
+  Widget _buildFloatingActionButtons() {
+    return Container(
+      height: 60,
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildFloatingButton(
+            icon: Icons.checklist_rounded,
+            label: 'Select',
+            color: Colors.blueAccent,
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage())),
+          ),
+          _buildDivider(),
+          _buildFloatingButton(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            color: Colors.redAccent,
+            onPressed: _deleteCourse,
+          ),
+          _buildDivider(),
+          _buildFloatingButton(
+            icon: Icons.list_alt,
+            label: 'Show All',
+            color: Colors.green,
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisteredCoursesPage()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  color: Colors.blueGrey[800],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      height: 30,
+      width: 1,
+      color: Colors.grey[300],
+    );
   }
 
   Widget _buildCourseGrid() {
@@ -362,7 +420,7 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final course = _items[index];
-        final image = _courseImages[course.name] ?? '';
+        final image = _courseImages[course.name] ?? 'https://via.placeholder.com/150';
         return _buildCourseCard(course.name, image);
       },
     );
@@ -419,72 +477,311 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildWishlistContent() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildActionButton(
-            icon: Icons.checklist_rounded,
-            label: 'Select Courses',
-            color: Colors.blueAccent,
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage())),
+          Icon(Icons.favorite_border, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 20),
+          Text(
+            'Your Wishlist',
+            style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Courses you save will appear here',
+            style: GoogleFonts.poppins(color: Colors.grey[600]),
           ),
           const SizedBox(height: 20),
-          _buildActionButton(
-            icon: Icons.delete_outline,
-            label: 'Delete Course',
-            color: Colors.redAccent,
-            onPressed: _deleteCourse,
-          ),
-          const SizedBox(height: 20),
-          _buildActionButton(
-            icon: Icons.list_alt,
-            label: 'Show All Courses',
-            color: Colors.green,
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisteredCoursesPage()));
-              _showAllCourses();
-            },
+          ElevatedButton(
+            onPressed: () => setState(() => _selectedIndex = 0),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[800],
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Browse Courses',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return Material(
-      borderRadius: BorderRadius.circular(15),
-      elevation: 4,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(15),
+  Widget _buildProfileContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.blue[800]!, width: 3),
+                  ),
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.grey[200],
+                    backgroundImage: _profileImageUrl != null
+                        ? NetworkImage(_profileImageUrl!)
+                        : null,
+                    child: _profileImageUrl == null
+                        ? Icon(Icons.person, size: 60, color: Colors.grey[500])
+                        : null,
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue[800],
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.camera_alt, color: Colors.white),
+                      onPressed: _changeProfilePicture,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 24),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+          const SizedBox(height: 30),
+          _buildProfileSectionTitle('Personal Information'),
+          const SizedBox(height: 15),
+          _isEditingProfile
+              ? _buildEditableProfileForm()
+              : _buildProfileInfoDisplay(),
+          const SizedBox(height: 30),
+          _buildProfileSectionTitle('Account Settings'),
+          const SizedBox(height: 15),
+          _buildProfileSettingItem(
+            icon: Icons.notifications,
+            title: 'Notifications',
+            onTap: () {},
+          ),
+          _buildProfileSettingItem(
+            icon: Icons.security,
+            title: 'Privacy & Security',
+            onTap: () {},
+          ),
+          _buildProfileSettingItem(
+            icon: Icons.help_outline,
+            title: 'Help & Support',
+            onTap: () {},
+          ),
+          _buildProfileSettingItem(
+            icon: Icons.logout,
+            title: 'Logout',
+            color: Colors.red,
+            onTap: _logout,
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.poppins(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: Colors.blue[800],
+      ),
+    );
+  }
+
+  Widget _buildProfileInfoDisplay() {
+    return Column(
+      children: [
+        _buildProfileInfoItem('Full Name', _userName),
+        _buildProfileInfoItem('Student ID', _studentId),
+        _buildProfileInfoItem('Email', _userEmail),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: () => setState(() => _isEditingProfile = true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue[800],
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            'Edit Profile',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditableProfileForm() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: 'Full Name',
+            prefixIcon: Icon(Icons.person, color: Colors.blue[800]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        TextFormField(
+          controller: _idController,
+          decoration: InputDecoration(
+            labelText: 'Student ID',
+            prefixIcon: Icon(Icons.badge, color: Colors.blue[800]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        TextFormField(
+          initialValue: _userEmail,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: 'Email',
+            prefixIcon: Icon(Icons.email, color: Colors.blue[800]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _isEditingProfile = false),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  side: BorderSide(color: Colors.blue[800]!),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    color: Colors.blue[800],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _updateUserProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[800],
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : Text(
+                  'Save Changes',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileInfoItem(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
           ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSettingItem({
+    required IconData icon,
+    required String title,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey[200]!),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color ?? Colors.blue[800]),
+            const SizedBox(width: 15),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: color ?? Colors.grey[800],
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
         ),
       ),
     );
@@ -534,37 +831,19 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  void _showSettingsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        contentPadding: EdgeInsets.zero,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.settings, color: Colors.blue),
-              title: Text('Settings', style: GoogleFonts.poppins()),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: Text('Logout', style: GoogleFonts.poppins()),
-              onTap: () {
-                Navigator.pop(context);
-                _logout();
-              },
-            ),
-          ],
-        ),
-      ),
+  Widget _buildModernBottomBar() {
+    return BottomNavigationBar(
+      items: _navItems,
+      currentIndex: _selectedIndex,
+      onTap: (index) => setState(() => _selectedIndex = index),
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.blue[800],
+      unselectedItemColor: Colors.grey,
+      selectedLabelStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
+      unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
+      elevation: 8,
     );
-  }
-
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-    _tabController.animateTo(index);
   }
 
   void _navigateToCourseDetail(String title, String image) {
@@ -582,16 +861,39 @@ class _UserPageState extends State<UserPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Future<void> _deleteCourse() async {
+  void _deleteCourse() {
     // Implement course deletion logic
   }
 
-  Future<void> _showAllCourses() async {
-    try {
-      await _fetchCoursesFromFirestore();
-    } catch (e) {
-      print('Error showing all courses: $e');
-    }
+  void _changeProfilePicture() {
+    // Implement profile picture change logic
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Profile Picture', style: GoogleFonts.poppins()),
+        content: Text('Select a method to update your profile picture', style: GoogleFonts.poppins()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Open camera
+            },
+            child: Text('Camera', style: GoogleFonts.poppins(color: Colors.blue[800])),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Open gallery
+            },
+            child: Text('Gallery', style: GoogleFonts.poppins(color: Colors.blue[800])),
+          ),
+        ],
+      ),
+    );
   }
 }
 
