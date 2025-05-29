@@ -15,6 +15,7 @@ import 'user_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
   try {
     if (Firebase.apps.isEmpty) {
@@ -49,6 +50,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6C63FF),
+          brightness: Brightness.dark,
+        ),
+        fontFamily: 'Inter',
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
       home: homePage,
     );
   }
@@ -61,31 +76,52 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<CustomListItem> items = [];
-  final ScrollController _scrollController = ScrollController();
+  bool _isLoading = true;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     fetchDataFromFirestore();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> fetchDataFromFirestore() async {
     try {
       final querySnapshot = await _firestore.collection('Paragraphs').get();
-      if (!mounted) return; // ✅ Prevent setState if widget is disposed
+      if (!mounted) return;
       setState(() {
         items = querySnapshot.docs.map((doc) {
           return CustomListItem(doc['Name'], doc['Content']);
         }).toList();
+        _isLoading = false;
       });
     } catch (error) {
       print('Error getting documents: $error');
+      setState(() => _isLoading = false);
     }
   }
-
 
   Future<void> _showPasswordDialog() async {
     final TextEditingController passwordController = TextEditingController();
@@ -102,212 +138,373 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Error retrieving password: $e');
     }
 
-    showDialog(
+    await showGeneralDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Enter Admin Password'),
-          content: TextField(
-            controller: passwordController,
-            decoration: const InputDecoration(
-              labelText: 'Password',
-              border: OutlineInputBorder(),
-            ),
-            obscureText: true,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.5, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final String password = passwordController.text.trim();
-                if (adminPassword != null && password == adminPassword) {
-                  Navigator.of(context).pop();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AdminLoginPage()),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Incorrect password')),
-                  );
-                }
-              },
-              child: const Text('Submit'),
+          child: FadeTransition(
+            opacity: animation,
+            child: Dialog(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Admin Access',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        filled: true,
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final password = passwordController.text.trim();
+                            if (adminPassword != null && password == adminPassword) {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AdminLoginPage(),
+                                  settings: const RouteSettings(name: '/admin'),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Incorrect password'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                          ),
+                          child: const Text('Submit'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
+          ),
         );
       },
+      transitionDuration: const Duration(milliseconds: 300),
     );
   }
 
   void showContentDialog(String name, String content) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(name),
-          content: SingleChildScrollView(
-            child: Text(content),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           ),
-          actions: [
-            TextButton(
-              child: const Text('Close'),
-              onPressed: () => Navigator.of(context).pop(),
+          child: FadeTransition(
+            opacity: animation,
+            child: Dialog(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          content,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
         );
       },
+      transitionDuration: const Duration(milliseconds: 300),
     );
   }
 
-  void _scrollLeft() {
-    _scrollController.animateTo(
-      _scrollController.offset - 200,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.ease,
-    );
-  }
-
-  void _scrollRight() {
-    _scrollController.animateTo(
-      _scrollController.offset + 200,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.ease,
-    );
+  void _navigateToPage(Widget page, String routeName) {
+    _animationController.forward().then((_) {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+          settings: RouteSettings(name: routeName),
+        ),
+      ).then((_) => _animationController.reverse());
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isSmallScreen = screenSize.width < 600;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/login1.png'),
-            fit: BoxFit.cover,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.surface,
+              colorScheme.surfaceVariant,
+            ],
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Center(
-                    child: Text(
-                      'Hello, Guest',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'sans-serif-black',
-                        fontSize: isSmallScreen ? 20.0 : 24.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, Guest',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Explore the application features',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Feature Grid
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.2,
+                  padding: const EdgeInsets.all(8),
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: [
+                    _buildFeatureCard(
+                      context,
+                      Icons.login,
+                      'Login',
+                      const LoginPage(),
+                      colorScheme.primaryContainer,
+                      '/login',
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      Icons.tour,
+                      'Tour',
+                      const TourPage(),
+                      colorScheme.secondaryContainer,
+                      '/tour',
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      Icons.app_registration,
+                      'Register',
+                      const RegisterPage(),
+                      colorScheme.tertiaryContainer,
+                      '/register',
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      Icons.admin_panel_settings,
+                      'Admin',
+                      null,
+                      colorScheme.errorContainer,
+                      '/admin',
+                    ),
+                    _buildFeatureCard(
+                      context,
+                      Icons.info_outline,
+                      'About',
+                      const AboutPage(),
+                      colorScheme.primaryContainer,
+                      '/about',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Announcements Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                child: Row(
+                  children: [
+                    Text(
+                      'Announcements',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () {
+                        setState(() => _isLoading = true);
+                        fetchDataFromFirestore();
+                      },
+                      tooltip: 'Refresh',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Announcements List
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : RefreshIndicator(
+                  onRefresh: fetchDataFromFirestore,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      return _buildAnnouncementCard(
+                        context,
+                        items[index].name,
+                        items[index].content,
+                      );
+                    },
                   ),
                 ),
-                SizedBox(
-                  height: screenSize.height * 0.85,
-                  child: Column(
-                    children: <Widget>[
-                      Stack(
-                        children: [
-                          SingleChildScrollView(
-                            controller: _scrollController,
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: <Widget>[
-                                buildCard(context, Icons.login, 'Login', const LoginPage()),
-                                buildCard(context, Icons.tour, 'Tour', const TourPage()),
-                                buildCard(context, Icons.app_registration, 'Register', const RegisterPage()),
-                                buildCard(context, Icons.admin_panel_settings, 'Admin', null),
-                                buildCard(context, Icons.info, 'About', const AboutPage()),
-                              ],
-                            ),
-                          ),
-                          if (kIsWeb)
-                            Positioned.fill(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _scrollLeft,
-                                    child: Container(
-                                      width: 30.0,
-                                      height: double.infinity,
-                                      color: Colors.transparent,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _scrollRight,
-                                    child: Container(
-                                      width: 30.0,
-                                      height: double.infinity,
-                                      color: Colors.transparent,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10.0),
-                      const Text(
-                        'Announcements',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'sans-serif-black',
-                          fontSize: 24.0,
-                        ),
-                      ),
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: fetchDataFromFirestore,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.only(top: 0.0),
-                            itemCount: items.length,
-                            itemBuilder: (context, index) {
-                              return Card(
-                                margin: EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                  horizontal: isSmallScreen ? 8.0 : 16.0,
-                                ),
-                                elevation: 5.0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(16.0),
-                                  title: Text(
-                                    items[index].name,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    items[index].content.length > 100
-                                        ? '${items[index].content.substring(0, 100)}...'
-                                        : items[index].content,
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                  onTap: () {
-                                    showContentDialog(items[index].name, items[index].content);
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(
+      BuildContext context,
+      IconData icon,
+      String label,
+      Widget? targetPage,
+      Color bgColor,
+      String routeName,
+      ) {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        color: bgColor,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            _animationController.forward().then((_) {
+              if (targetPage != null) {
+                _navigateToPage(targetPage, routeName);
+              } else if (label == 'Admin') {
+                _showPasswordDialog();
+              }
+            });
+          },
+          onHighlightChanged: (isPressed) {
+            if (isPressed) {
+              _animationController.forward();
+            } else {
+              _animationController.reverse();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 28),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -318,47 +515,79 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  GestureDetector buildCard(BuildContext context, IconData icon, String label, Widget? targetPage) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
-    return GestureDetector(
-      onTap: () {
-        if (targetPage != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => targetPage));
-        } else if (label == 'Admin') {
-          _showPasswordDialog();
-        }
+  Widget _buildAnnouncementCard(
+      BuildContext context,
+      String title,
+      String content
+      ) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      builder: (context, double value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        );
       },
-      child: Container(
-        width: isSmallScreen ? 120.0 : 150.0,
-        height: isSmallScreen ? 120.0 : 150.0,
-        margin: const EdgeInsets.all(10.0),
-        decoration: BoxDecoration(
-          color: const Color(0xFF333366),
-          borderRadius: BorderRadius.circular(20.0),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black45,
-              offset: Offset(2.0, 2.0),
-              blurRadius: 10.0,
-            ),
-          ],
+      child: Card(
+        elevation: 1,
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(icon, color: Colors.white, size: isSmallScreen ? 40.0 : 50.0),
-            const SizedBox(height: 10.0),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'sans-serif-black',
-                fontSize: isSmallScreen ? 16.0 : 20.0,
-              ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => showContentDialog(title, content),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  content.length > 100
+                      ? '${content.substring(0, 100)}...'
+                      : content,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (content.length > 100)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Read more',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
