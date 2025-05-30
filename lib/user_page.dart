@@ -36,6 +36,7 @@ class _UserPageState extends State<UserPage> {
   bool _isEditingProfile = false;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _idController = TextEditingController();
+  bool _isRibbonExpanded = false; // New state for ribbon visibility
 
   // Modern bottom navigation items
   int _selectedIndex = 0;
@@ -44,11 +45,6 @@ class _UserPageState extends State<UserPage> {
       icon: Icon(Icons.home_outlined),
       activeIcon: Icon(Icons.home),
       label: 'Home',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.favorite_border),
-      activeIcon: Icon(Icons.favorite),
-      label: 'Wishlist',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.person_outline),
@@ -227,8 +223,122 @@ class _UserPageState extends State<UserPage> {
           ? _buildShimmerLoader()
           : _buildCurrentPage(),
       bottomNavigationBar: _buildModernBottomBar(),
-      floatingActionButton: _selectedIndex == 0 ? _buildFloatingActionButtons() : null,
+      floatingActionButton: _selectedIndex == 0
+          ? _buildRibbonButton()
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  Widget _buildRibbonButton() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isRibbonExpanded) _buildExpandedRibbon(),
+        FloatingActionButton(
+          onPressed: () => setState(() => _isRibbonExpanded = !_isRibbonExpanded),
+          backgroundColor: Colors.blue[800],
+          child: Icon(
+            _isRibbonExpanded ? Icons.close : Icons.menu,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandedRibbon() {
+    return Container(
+      height: 60,
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildRibbonButtonItem(
+            icon: Icons.checklist_rounded,
+            label: 'Select',
+            color: Colors.blueAccent,
+            onPressed: () {
+              setState(() => _isRibbonExpanded = false);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage()));
+            },
+          ),
+          _buildDivider(),
+          _buildRibbonButtonItem(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            color: Colors.redAccent,
+            onPressed: () {
+              setState(() => _isRibbonExpanded = false);
+              _deleteCourse();
+            },
+          ),
+          _buildDivider(),
+          _buildRibbonButtonItem(
+            icon: Icons.list_alt,
+            label: 'Show All',
+            color: Colors.green,
+            onPressed: () {
+              setState(() => _isRibbonExpanded = false);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisteredCoursesPage()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRibbonButtonItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(30),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    color: Colors.blueGrey[800],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      height: 30,
+      width: 1,
+      color: Colors.grey[300],
     );
   }
 
@@ -237,8 +347,6 @@ class _UserPageState extends State<UserPage> {
       case 0:
         return _buildMainContent();
       case 1:
-        return _buildWishlistContent();
-      case 2:
         return _buildProfileContent();
       default:
         return _buildMainContent();
@@ -319,92 +427,6 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildFloatingActionButtons() {
-    return Container(
-      height: 60,
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildFloatingButton(
-            icon: Icons.checklist_rounded,
-            label: 'Select',
-            color: Colors.blueAccent,
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage())),
-          ),
-          _buildDivider(),
-          _buildFloatingButton(
-            icon: Icons.delete_outline,
-            label: 'Delete',
-            color: Colors.redAccent,
-            onPressed: _deleteCourse,
-          ),
-          _buildDivider(),
-          _buildFloatingButton(
-            icon: Icons.list_alt,
-            label: 'Show All',
-            color: Colors.green,
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisteredCoursesPage()));
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  color: Colors.blueGrey[800],
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(
-      height: 30,
-      width: 1,
-      color: Colors.grey[300],
-    );
-  }
-
   Widget _buildCourseGrid() {
     return _items.isEmpty
         ? _buildEmptyState()
@@ -476,117 +498,85 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildWishlistContent() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite_border, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 20),
-          Text(
-            'Your Wishlist',
-            style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Courses you save will appear here',
-            style: GoogleFonts.poppins(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => setState(() => _selectedIndex = 0),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[800],
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+  Widget _buildProfileContent() {
+    return SafeArea(
+      top: true,
+      minimum: const EdgeInsets.only(top: 20),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.blue[800]!, width: 3),
+                    ),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: _profileImageUrl != null
+                          ? NetworkImage(_profileImageUrl!)
+                          : null,
+                      child: _profileImageUrl == null
+                          ? Icon(Icons.person, size: 60, color: Colors.grey[500])
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue[800],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt, color: Colors.white),
+                        onPressed: _changeProfilePicture,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Text(
-              'Browse Courses',
-              style: GoogleFonts.poppins(color: Colors.white),
+            const SizedBox(height: 30),
+            _buildProfileSectionTitle('Personal Information'),
+            const SizedBox(height: 15),
+            _isEditingProfile
+                ? _buildEditableProfileForm()
+                : _buildProfileInfoDisplay(),
+            const SizedBox(height: 30),
+            _buildProfileSectionTitle('Account Settings'),
+            const SizedBox(height: 15),
+            _buildProfileSettingItem(
+              icon: Icons.notifications,
+              title: 'Notifications',
+              onTap: () {},
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.blue[800]!, width: 3),
-                  ),
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: _profileImageUrl != null
-                        ? NetworkImage(_profileImageUrl!)
-                        : null,
-                    child: _profileImageUrl == null
-                        ? Icon(Icons.person, size: 60, color: Colors.grey[500])
-                        : null,
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.blue[800],
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.camera_alt, color: Colors.white),
-                      onPressed: _changeProfilePicture,
-                    ),
-                  ),
-                ),
-              ],
+            _buildProfileSettingItem(
+              icon: Icons.security,
+              title: 'Privacy & Security',
+              onTap: () {},
             ),
-          ),
-          const SizedBox(height: 30),
-          _buildProfileSectionTitle('Personal Information'),
-          const SizedBox(height: 15),
-          _isEditingProfile
-              ? _buildEditableProfileForm()
-              : _buildProfileInfoDisplay(),
-          const SizedBox(height: 30),
-          _buildProfileSectionTitle('Account Settings'),
-          const SizedBox(height: 15),
-          _buildProfileSettingItem(
-            icon: Icons.notifications,
-            title: 'Notifications',
-            onTap: () {},
-          ),
-          _buildProfileSettingItem(
-            icon: Icons.security,
-            title: 'Privacy & Security',
-            onTap: () {},
-          ),
-          _buildProfileSettingItem(
-            icon: Icons.help_outline,
-            title: 'Help & Support',
-            onTap: () {},
-          ),
-          _buildProfileSettingItem(
-            icon: Icons.logout,
-            title: 'Logout',
-            color: Colors.red,
-            onTap: _logout,
-          ),
-          const SizedBox(height: 40),
-        ],
+            _buildProfileSettingItem(
+              icon: Icons.help_outline,
+              title: 'Help & Support',
+              onTap: () {},
+            ),
+            _buildProfileSettingItem(
+              icon: Icons.logout,
+              title: 'Logout',
+              color: Colors.red,
+              onTap: _logout,
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
