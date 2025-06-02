@@ -36,9 +36,7 @@ class _UserPageState extends State<UserPage> {
   bool _isEditingProfile = false;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _idController = TextEditingController();
-  bool _isRibbonExpanded = false; // New state for ribbon visibility
 
-  // Modern bottom navigation items
   int _selectedIndex = 0;
   final List<BottomNavigationBarItem> _navItems = [
     BottomNavigationBarItem(
@@ -169,7 +167,6 @@ class _UserPageState extends State<UserPage> {
       setState(() => _items = courses);
     } catch (e) {
       print('Error fetching courses: $e');
-      // Add fallback to show all courses on error
       if (_items.isEmpty) {
         final fallbackSnapshot = await _firestore.collection('Courses').get();
         final fallbackCourses = fallbackSnapshot.docs.map((doc) {
@@ -212,206 +209,212 @@ class _UserPageState extends State<UserPage> {
     await prefs.clear();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+      MaterialPageRoute(builder: (context) => LoginPage()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       body: _isLoading
           ? _buildShimmerLoader()
-          : _buildCurrentPage(),
-      bottomNavigationBar: _buildModernBottomBar(),
-      floatingActionButton: _selectedIndex == 0
-          ? _buildRibbonButton()
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  Widget _buildRibbonButton() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_isRibbonExpanded) _buildExpandedRibbon(),
-        FloatingActionButton(
-          onPressed: () => setState(() => _isRibbonExpanded = !_isRibbonExpanded),
-          backgroundColor: Colors.blue[800],
-          child: Icon(
-            _isRibbonExpanded ? Icons.close : Icons.menu,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExpandedRibbon() {
-    return Container(
-      height: 60,
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+          : IndexedStack(
+        index: _selectedIndex,
         children: [
-          _buildRibbonButtonItem(
-            icon: Icons.checklist_rounded,
-            label: 'Select',
-            color: Colors.blueAccent,
-            onPressed: () {
-              setState(() => _isRibbonExpanded = false);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage()));
-            },
-          ),
-          _buildDivider(),
-          _buildRibbonButtonItem(
-            icon: Icons.delete_outline,
-            label: 'Delete',
-            color: Colors.redAccent,
-            onPressed: () {
-              setState(() => _isRibbonExpanded = false);
-              _deleteCourse();
-            },
-          ),
-          _buildDivider(),
-          _buildRibbonButtonItem(
-            icon: Icons.list_alt,
-            label: 'Show All',
-            color: Colors.green,
-            onPressed: () {
-              setState(() => _isRibbonExpanded = false);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisteredCoursesPage()));
-            },
-          ),
+          _buildHomeScreen(),
+          _isEditingProfile ? _buildEditProfileForm() : _buildProfileScreen(),
         ],
       ),
+      bottomNavigationBar: _buildBottomBar(),
+      floatingActionButton: _selectedIndex == 0 ? _buildFloatingActionMenu() : null,
     );
   }
 
-  Widget _buildRibbonButtonItem({
+  Widget _buildFloatingActionMenu() {
+    return FloatingActionButton(
+      backgroundColor: Colors.blue[800],
+      onPressed: () {
+        showModalBottomSheet(
+          context: context,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (context) {  // Fixed: Added proper builder function
+            return Container(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Course Actions', style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[800]
+                  )),
+                  SizedBox(height: 20),
+                  _buildActionButton(
+                      icon: Icons.checklist_rounded,
+                      label: 'Select Courses',
+                      color: Colors.blueAccent,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => WishlistPage()));
+                      }
+                  ),
+                  _buildActionButton(
+                      icon: Icons.delete_outline,
+                      label: 'Delete Courses',
+                      color: Colors.redAccent,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _deleteCourse();
+                      }
+                  ),
+                  _buildActionButton(
+                      icon: Icons.list_alt,
+                      label: 'Show All Courses',
+                      color: Colors.green,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => RegisteredCoursesPage()));
+                      }
+                  ),
+                  SizedBox(height: 10),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      child: Icon(Icons.menu, color: Colors.white),
+    );
+  }
+
+  Widget _buildActionButton({
     required IconData icon,
     required String label,
     required Color color,
     required VoidCallback onPressed,
   }) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(30),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    color: Colors.blueGrey[800],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+    return ListTile(
+      leading: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(label, style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w500,
+          fontSize: 16
+      )),
+      trailing: Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: onPressed,
+    );
+  }
+
+  Widget _buildHomeScreen() {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverAppBar(
+          expandedHeight: 180,
+          floating: true,
+          pinned: true,
+          flexibleSpace: FlexibleSpaceBar(
+            title: Text('Explore Courses', style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontSize: 18
+            )),
+            centerTitle: true,
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue[800]!, Colors.indigo[900]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+              ),
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.search, color: Colors.white),
+              onPressed: () {},
+            ),
+          ],
+        ),
+
+        SliverPadding(
+          padding: EdgeInsets.all(16),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Hello, $_userName!', style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800]
+                )),
+                SizedBox(height: 8),
+                Text('Find your next course', style: GoogleFonts.poppins(
+                    color: Colors.grey[600]
+                )),
+                SizedBox(height: 24),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
 
-  Widget _buildDivider() {
-    return Container(
-      height: 30,
-      width: 1,
-      color: Colors.grey[300],
-    );
-  }
-
-  Widget _buildCurrentPage() {
-    switch (_selectedIndex) {
-      case 0:
-        return _buildMainContent();
-      case 1:
-        return _buildProfileContent();
-      default:
-        return _buildMainContent();
-    }
-  }
-
-  Widget _buildMainContent() {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 150,
-          flexibleSpace: _buildAppBarHeader(),
-          pinned: true,
-          backgroundColor: Colors.blue[800],
-        ),
         SliverPadding(
-          padding: const EdgeInsets.all(20),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              const SizedBox(height: 10),
-              _buildCategoryFilter(),
-              const SizedBox(height: 25),
-              _buildCourseGrid(),
-            ]),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverToBoxAdapter(
+            child: _buildCategoryFilter(),
+          ),
+        ),
+
+        SliverPadding(
+          padding: EdgeInsets.all(16),
+          sliver: _items.isEmpty
+              ? SliverToBoxAdapter(child: _buildEmptyState())
+              : SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.75,
+            ),
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final course = _items[index];
+                final image = _courseImages[course.name] ??
+                    'https://via.placeholder.com/150';
+                return _buildCourseCard(course.name, image);
+              },
+              childCount: _items.length,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAppBarHeader() {
-    return FlexibleSpaceBar(
-      title: Text(
-        'Courses',
-        style: GoogleFonts.poppins(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
-        ),
-      ),
-      centerTitle: true,
-      background: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue[800]!, Colors.blue[600]!],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoryFilter() {
-    final categories = ['All', 'Popular', 'New'];
+    final categories = ['All', 'Popular', 'New', 'Design', 'Development'];
     return SizedBox(
-      height: 45,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = category == 'All';
-          return ChoiceChip(
+          return FilterChip(
             label: Text(category),
             selected: isSelected,
             onSelected: (_) => {},
@@ -419,322 +422,249 @@ class _UserPageState extends State<UserPage> {
               fontWeight: FontWeight.w500,
               color: isSelected ? Colors.white : Colors.blue[800],
             ),
-            backgroundColor: Colors.grey[200],
+            backgroundColor: Colors.white,
             selectedColor: Colors.blue[800]!,
+            shape: StadiumBorder(
+                side: BorderSide(color: Colors.grey[300]!)
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildCourseGrid() {
-    return _items.isEmpty
-        ? _buildEmptyState()
-        : GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        mainAxisSpacing: 15,
-        crossAxisSpacing: 15,
-      ),
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final course = _items[index];
-        final image = _courseImages[course.name] ?? 'https://via.placeholder.com/150';
-        return _buildCourseCard(course.name, image);
-      },
-    );
-  }
-
   Widget _buildCourseCard(String title, String imageUrl) {
-    return GestureDetector(
-      onTap: () => _navigateToCourseDetail(title, imageUrl),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: Stack(
-            children: [
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, size: 40),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _navigateToCourseDetail(title, imageUrl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey[200],
+                    child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                  ),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                    ),
-                  ),
-                  child: Text(
+            ),
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
-                ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.amber, size: 16),
+                      SizedBox(width: 4),
+                      Text('4.8', style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600]
+                      )),
+                      Spacer(),
+                      Text('\$49.99', style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue[800]
+                      )),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileContent() {
-    return SafeArea(
-      top: true,
-      minimum: const EdgeInsets.only(top: 20),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+  Widget _buildProfileScreen() {
+    return SingleChildScrollView(
+      physics: BouncingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: 20),
             Center(
               child: Stack(
+                alignment: Alignment.bottomRight,
                 children: [
                   Container(
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.blue[800]!, width: 3),
+                      border: Border.all(
+                          color: Colors.blue[800]!,
+                          width: 3
+                      ),
                     ),
                     child: CircleAvatar(
-                      radius: 60,
+                      radius: 56,
                       backgroundColor: Colors.grey[200],
                       backgroundImage: _profileImageUrl != null
                           ? NetworkImage(_profileImageUrl!)
                           : null,
                       child: _profileImageUrl == null
-                          ? Icon(Icons.person, size: 60, color: Colors.grey[500])
+                          ? Icon(Icons.person, size: 50, color: Colors.grey[500])
                           : null,
                     ),
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue[800],
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, color: Colors.white),
-                        onPressed: _changeProfilePicture,
-                      ),
-                    ),
+                  FloatingActionButton.small(
+                    backgroundColor: Colors.blue[800],
+                    onPressed: _changeProfilePicture,
+                    child: Icon(Icons.camera_alt, size: 20),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
-            _buildProfileSectionTitle('Personal Information'),
-            const SizedBox(height: 15),
-            _isEditingProfile
-                ? _buildEditableProfileForm()
-                : _buildProfileInfoDisplay(),
-            const SizedBox(height: 30),
-            _buildProfileSectionTitle('Account Settings'),
-            const SizedBox(height: 15),
-            _buildProfileSettingItem(
+
+            SizedBox(height: 24),
+            Text(_userName, style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.w600
+            )),
+            SizedBox(height: 4),
+            Text(_userEmail, style: GoogleFonts.poppins(
+                color: Colors.grey[600]
+            )),
+
+            SizedBox(height: 32),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey[200]!)
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildProfileItem(
+                      icon: Icons.badge,
+                      title: "Student ID",
+                      value: _studentId,
+                    ),
+                    Divider(height: 32),
+                    _buildProfileItem(
+                      icon: Icons.school,
+                      title: "Enrolled Courses",
+                      value: "12 courses",
+                    ),
+                    Divider(height: 32),
+                    _buildProfileItem(
+                      icon: Icons.favorite_border,
+                      title: "Wishlist",
+                      value: "5 items",
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text("Account Settings", style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18
+              )),
+            ),
+            SizedBox(height: 16),
+            _buildSettingItem(
+              icon: Icons.edit,
+              title: "Edit Profile",
+              onTap: () => setState(() => _isEditingProfile = true),
+            ),
+            _buildSettingItem(
               icon: Icons.notifications,
-              title: 'Notifications',
-              onTap: () {},
+              title: "Notifications",
             ),
-            _buildProfileSettingItem(
-              icon: Icons.security,
-              title: 'Privacy & Security',
-              onTap: () {},
+            _buildSettingItem(
+              icon: Icons.payment,
+              title: "Payment Methods",
             ),
-            _buildProfileSettingItem(
-              icon: Icons.help_outline,
-              title: 'Help & Support',
-              onTap: () {},
+            _buildSettingItem(
+              icon: Icons.help_center,
+              title: "Help Center",
             ),
-            _buildProfileSettingItem(
+            _buildSettingItem(
               icon: Icons.logout,
-              title: 'Logout',
+              title: "Logout",
               color: Colors.red,
               onTap: _logout,
             ),
-            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileSectionTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.poppins(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: Colors.blue[800],
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoDisplay() {
-    return Column(
-      children: [
-        _buildProfileInfoItem('Full Name', _userName),
-        _buildProfileInfoItem('Student ID', _studentId),
-        _buildProfileInfoItem('Email', _userEmail),
-        const SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: () => setState(() => _isEditingProfile = true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[800],
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: Text(
-            'Edit Profile',
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEditableProfileForm() {
-    return Column(
-      children: [
-        TextFormField(
-          controller: _nameController,
-          decoration: InputDecoration(
-            labelText: 'Full Name',
-            prefixIcon: Icon(Icons.person, color: Colors.blue[800]),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-        const SizedBox(height: 15),
-        TextFormField(
-          controller: _idController,
-          decoration: InputDecoration(
-            labelText: 'Student ID',
-            prefixIcon: Icon(Icons.badge, color: Colors.blue[800]),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-        const SizedBox(height: 15),
-        TextFormField(
-          initialValue: _userEmail,
-          readOnly: true,
-          decoration: InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email, color: Colors.blue[800]),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => _isEditingProfile = false),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  side: BorderSide(color: Colors.blue[800]!),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'Cancel',
-                  style: GoogleFonts.poppins(
-                    color: Colors.blue[800],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _updateUserProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[800],
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-                    : Text(
-                  'Save Changes',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfileInfoItem(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Row(
+  Widget _buildEditProfileForm() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(24),
+      child: Column(
         children: [
-          Text(
-            '$label: ',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
+          AppBar(
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back),
+              onPressed: () => setState(() => _isEditingProfile = false),
+            ),
+            title: Text('Edit Profile'),
+          ),
+          SizedBox(height: 20),
+          CircleAvatar(
+            radius: 60,
+            backgroundImage: _profileImageUrl != null
+                ? NetworkImage(_profileImageUrl!)
+                : null,
+            child: _profileImageUrl == null
+                ? Icon(Icons.person, size: 50, color: Colors.grey)
+                : null,
+          ),
+          SizedBox(height: 20),
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: 'Full Name',
+              border: OutlineInputBorder(),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(),
+          SizedBox(height: 16),
+          TextFormField(
+            controller: _idController,
+            decoration: InputDecoration(
+              labelText: 'Student ID',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _updateUserProfile,
+            child: Text('Save Changes'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[800],
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
           ),
         ],
@@ -742,62 +672,99 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildProfileSettingItem({
+  Widget _buildProfileItem({required IconData icon, required String title, required String value}) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.blue[800], size: 20),
+        ),
+        SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: GoogleFonts.poppins(
+                color: Colors.grey[600],
+                fontSize: 14
+            )),
+            SizedBox(height: 4),
+            Text(value, style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 16
+            )),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingItem({
     required IconData icon,
     required String title,
     Color? color,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.grey[200]!),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color ?? Colors.blue[800]),
-            const SizedBox(width: 15),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: color ?? Colors.grey[800],
-              ),
-            ),
-            const Spacer(),
-            Icon(Icons.chevron_right, color: Colors.grey[400]),
-          ],
+    return Card(
+      margin: EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey[100]!)
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: color ?? Colors.blue[800]),
+        title: Text(title, style: GoogleFonts.poppins()),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+        onTap: onTap,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildBottomBar() {
     return Container(
-      height: 150,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
-          const SizedBox(height: 10),
-          Text(
-            'No courses available',
-            style: GoogleFonts.poppins(
-              color: Colors.grey[600],
-              fontSize: 16,
-            ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            spreadRadius: 2,
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) => setState(() => _selectedIndex = index),
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.blue[800],
+          unselectedItemColor: Colors.grey[600],
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home_filled),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -807,8 +774,8 @@ class _UserPageState extends State<UserPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator.adaptive(),
-          const SizedBox(height: 20),
+          CircularProgressIndicator.adaptive(),
+          SizedBox(height: 20),
           Text(
             'Loading your courses...',
             style: GoogleFonts.poppins(
@@ -821,18 +788,36 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildModernBottomBar() {
-    return BottomNavigationBar(
-      items: _navItems,
-      currentIndex: _selectedIndex,
-      onTap: (index) => setState(() => _selectedIndex = index),
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: Colors.blue[800],
-      unselectedItemColor: Colors.grey,
-      selectedLabelStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
-      unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-      elevation: 8,
+  Widget _buildEmptyState() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+          SizedBox(height: 16),
+          Text(
+            'No courses available',
+            style: GoogleFonts.poppins(
+              color: Colors.grey[600],
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Check back later for new courses',
+            style: GoogleFonts.poppins(
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -856,7 +841,6 @@ class _UserPageState extends State<UserPage> {
   }
 
   void _changeProfilePicture() {
-    // Implement profile picture change logic
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

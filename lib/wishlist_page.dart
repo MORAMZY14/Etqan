@@ -1,11 +1,9 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -46,7 +44,9 @@ class _WishlistPageState extends State<WishlistPage> {
     final List<dynamic> signedCoursesByUser = userDoc.data()?['courses'] ?? [];
 
     final snapshot = await _firestore.collection('Courses').get();
-    final futures = snapshot.docs.map((doc) async {
+    final List<Map<String, dynamic>> result = [];
+
+    for (final doc in snapshot.docs) {
       final courseName = doc.data()['name'] ?? 'Unknown Course';
       final List<dynamic> signedUsersByCourse = doc.data()['signedUsers'] ?? [];
       final List<dynamic> approvedUsersByCourse = doc.data()['ApprovedUsers'] ?? [];
@@ -54,21 +54,20 @@ class _WishlistPageState extends State<WishlistPage> {
       if (signedCoursesByUser.contains(courseName) ||
           signedUsersByCourse.contains(userEmail) ||
           approvedUsersByCourse.contains(userEmail)) {
-        return null;
+        continue;
       }
 
       final imageUrl = await _getCourseImageUrl(courseName);
       final coursePrice = doc.data()['price'] ?? 0;
 
-      return {
+      result.add({
         'name': courseName,
         'imageUrl': imageUrl,
         'price': coursePrice,
-      };
-    }).toList();
+      });
+    }
 
-    final courses = await Future.wait(futures);
-    return courses.where((course) => course != null).cast<Map<String, dynamic>>().toList();
+    return result;
   }
 
   Future<String> _getCourseImageUrl(String courseName) async {
@@ -93,25 +92,69 @@ class _WishlistPageState extends State<WishlistPage> {
   void _showPaymentDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment Required'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Please pay using the link below:'),
-            const SizedBox(height: 10),
-            SelectableText(_paymentLink, style: const TextStyle(color: Colors.blue)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showScreenshotUploadDialog();
-            },
-            child: const Text('OK'),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.payment, size: 48, color: Colors.blue),
+              const SizedBox(height: 16),
+              const Text(
+                'Payment Required',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Complete your payment using the link below:',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SelectableText(
+                  _paymentLink,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showScreenshotUploadDialog();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Continue',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -120,46 +163,107 @@ class _WishlistPageState extends State<WishlistPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Upload Payment Screenshot'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _paymentScreenshot == null
-                  ? const Text('No screenshot selected')
-                  : Image.file(_paymentScreenshot!, height: 150),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () async {
-                  final picker = ImagePicker();
-                  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-                  if (pickedFile != null) {
-                    setState(() {
-                      _paymentScreenshot = File(pickedFile.path);
-                    });
-                  }
-                },
-                child: const Text('Choose Screenshot'),
-              ),
-            ],
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: StatefulBuilder(
+          builder: (context, setState) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.upload, size: 48, color: Colors.blue),
+                const SizedBox(height: 16),
+                const Text(
+                  'Upload Payment Proof',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please upload a screenshot of your payment confirmation',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: _paymentScreenshot == null
+                      ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.image, size: 48, color: Colors.grey),
+                      const SizedBox(height: 8),
+                      Text('No screenshot selected',
+                          style: TextStyle(color: Colors.grey.shade600)),
+                    ],
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(_paymentScreenshot!, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final pickedFile = await picker.pickImage(
+                            source: ImageSource.gallery);
+                        if (pickedFile != null) {
+                          setState(() {
+                            _paymentScreenshot = File(pickedFile.path);
+                          });
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: const BorderSide(color: Colors.blue),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Choose File',
+                          style: TextStyle(color: Colors.blue)),
+                    ),
+                    ElevatedButton(
+                      onPressed: _paymentScreenshot == null
+                          ? null
+                          : () {
+                        Navigator.pop(context);
+                        _registerCourses();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Submit',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _paymentScreenshot = null;
+                  },
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _paymentScreenshot = null;
-              },
-              child: const Text('Quit'),
-            ),
-            ElevatedButton(
-              onPressed: _paymentScreenshot == null ? null : () {
-                Navigator.pop(context);
-                _registerCourses();
-              },
-              child: const Text('Proceed'),
-            ),
-          ],
         ),
       ),
     );
@@ -191,9 +295,11 @@ class _WishlistPageState extends State<WishlistPage> {
       });
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Courses registered successfully! Awaiting admin approval.')),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Courses registered successfully! Awaiting admin approval.')),
+      );
+    }
 
     setState(() {
       _selectedCourses.clear();
@@ -204,70 +310,253 @@ class _WishlistPageState extends State<WishlistPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Courses', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        title: const Text('Available Courses',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        elevation: 0,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _coursesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return _buildLoadingGrid();
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No courses available.'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  const Text('No courses available',
+                      style: TextStyle(fontSize: 18, color: Colors.grey)),
+                ],
+              ),
+            );
           }
 
           final courses = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: courses.length,
-            itemBuilder: (context, index) {
-              final course = courses[index];
-              final courseName = course['name'] ?? 'Unknown Course';
-              final courseImageUrl = course['imageUrl'] ?? '';
-              final coursePrice = course['price'] ?? 0;
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: courses.length,
+              itemBuilder: (context, index) {
+                final course = courses[index];
+                final courseName = course['name'] ?? 'Unknown Course';
+                final courseImageUrl = course['imageUrl'] ?? '';
+                final coursePrice = course['price'] ?? 0;
+                final isSelected = _selectedCourses.contains(courseName);
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: CircleAvatar(
-                    radius: 30,
-                    backgroundImage: courseImageUrl.isNotEmpty ? NetworkImage(courseImageUrl) : null,
-                    backgroundColor: Colors.grey.shade200,
-                    child: courseImageUrl.isEmpty
-                        ? const Icon(Icons.image, size: 30, color: Colors.grey)
-                        : null,
+                return GestureDetector(
+                  onTap: () => _toggleSelection(courseName, !isSelected),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.blue.withOpacity(0.1)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                      border: Border.all(
+                        color: isSelected ? Colors.blue : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(18)),
+                              child: AspectRatio(
+                                aspectRatio: 1.5,
+                                child: courseImageUrl.isNotEmpty
+                                    ? Image.network(
+                                  courseImageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _buildPlaceholderImage(),
+                                )
+                                    : _buildPlaceholderImage(),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    courseName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '\$${coursePrice.toString()}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: isSelected
+                                ? Container(
+                              key: const ValueKey('selected'),
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check,
+                                  size: 20, color: Colors.white),
+                            )
+                                : Container(
+                              key: const ValueKey('unselected'),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    blurRadius: 4,
+                                  )
+                                ],
+                              ),
+                              child: const Icon(Icons.add,
+                                  size: 20, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  title: Text(
-                    courseName,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    '\$${coursePrice.toString()}',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  trailing: Checkbox(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                    value: _selectedCourses.contains(courseName),
-                    onChanged: (bool? isSelected) {
-                      _toggleSelection(courseName, isSelected ?? false);
-                    },
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _selectedCourses.isEmpty ? null : _showPaymentDialog,
-        label: const Text('Register', style: TextStyle(fontSize: 16)),
-        icon: const Icon(Icons.check),
-      ),
+      floatingActionButton: _selectedCourses.isNotEmpty
+          ? FloatingActionButton.extended(
+        onPressed: _showPaymentDialog,
+        backgroundColor: Colors.blue,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        icon: const Icon(Icons.shopping_cart_checkout, color: Colors.white),
+        label: Text(
+          'Register (${_selectedCourses.length})',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: Icon(Icons.image, size: 40, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildLoadingGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.8,
+        ),
+        itemCount: 4,
+        itemBuilder: (context, index) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: Container(
+                      color: Colors.grey.shade200,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        width: 120,
+                        color: Colors.grey.shade200,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: 80,
+                        color: Colors.grey.shade200,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
