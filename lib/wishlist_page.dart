@@ -271,39 +271,75 @@ class _WishlistPageState extends State<WishlistPage> {
 
   void _registerCourses() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null || _paymentScreenshot == null) return;
 
     final userEmail = user.email!;
-    final userDoc = _firestore.collection('Users').doc(userEmail);
-    final selectedCourseNames = _selectedCourses.toList();
     final registrationDate = DateTime.now();
+    final timestamp = registrationDate.millisecondsSinceEpoch;
 
-    final List<Map<String, dynamic>> registeredCoursesData = selectedCourseNames.map((courseName) {
-      return {
-        'courseName': courseName,
-        'registrationDate': registrationDate,
-      };
-    }).toList();
-
-    await userDoc.update({
-      'RegisteredCourses': FieldValue.arrayUnion(registeredCoursesData),
-    });
-
-    for (final courseName in selectedCourseNames) {
-      await _firestore.collection('Courses').doc(courseName).update({
-        'signedUsers': FieldValue.arrayUnion([userEmail]),
-      });
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Courses registered successfully! Awaiting admin approval.')),
+    try {
+      // 1. Upload payment screenshot to Firebase Storage
+      final storageRef = _storage.ref().child(
+          'transactions/$userEmail/$timestamp.png' // Folder: transactions/user@email/timestamp.png
       );
-    }
+      await storageRef.putFile(_paymentScreenshot!);
+      final downloadUrl = await storageRef.getDownloadURL();
 
-    setState(() {
-      _selectedCourses.clear();
-    });
+      // 2. Create transaction documents in Firestore
+      final batch = _firestore.batch();
+      final transactionCollection = _firestore.collection('transactions');
+
+      for (final courseName in _selectedCourses) {
+        // Create transaction document
+        final transactionDoc = transactionCollection.doc();
+        batch.set(transactionDoc, {
+          'userId': userEmail,
+          'courseName': courseName,
+          'timestamp': registrationDate,
+          'paymentScreenshot': downloadUrl,
+          'status': 'pending',
+        });
+
+        // Update course document
+        final courseDoc = _firestore.collection('Courses').doc(courseName);
+        batch.update(courseDoc, {
+          'signedUsers': FieldValue.arrayUnion([userEmail]),
+        });
+      }
+
+      // 3. Update user document
+      final userDoc = _firestore.collection('Users').doc(userEmail);
+      final registeredCourses = _selectedCourses.map((course) => {
+        'courseName': course,
+        'registrationDate': registrationDate,
+      }).toList();
+
+      batch.update(userDoc, {
+        'RegisteredCourses': FieldValue.arrayUnion(registeredCourses),
+      });
+
+      // Commit all operations
+      await batch.commit();
+
+      // 4. Show success & reset state
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful! Awaiting approval.')),
+        );
+      }
+
+      setState(() {
+        _selectedCourses.clear();
+        _paymentScreenshot = null;
+      });
+
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override
