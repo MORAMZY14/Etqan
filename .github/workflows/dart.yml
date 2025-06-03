@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
@@ -17,32 +17,20 @@ jobs:
           channel: stable
           architecture: x64
 
-      - name: Clean build artifacts and Pod cache
+      - name: Clean build artifacts and CocoaPods cache
         run: |
           flutter clean
           rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
-
-      - name: Force Swift version in Podfile
-        run: |
-          echo "
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |config|
-                config.build_settings['SWIFT_VERSION'] = '5.9'
-              end
-            end
-          end
-          " >> ios/Podfile
-
       - name: Install CocoaPods
         run: |
           cd ios
           pod install
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
 
       - name: Build iOS app (Release)
         run: flutter build ios --release --no-codesign
