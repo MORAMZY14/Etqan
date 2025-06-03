@@ -24,13 +24,13 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
       - name: Install CocoaPods
         run: |
           cd ios
           pod install
-
-      - name: Get Flutter dependencies
-        run: flutter pub get
 
       - name: Build iOS app (Release)
         run: flutter build ios --release --no-codesign
