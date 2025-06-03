@@ -16,6 +16,13 @@ jobs:
         with:
           channel: stable
           architecture: x64
+          flutter-version: '3.19.0'  # Specify a specific version
+
+      - name: Set up Ruby and CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'  # Important for CocoaPods compatibility
+          bundler-cache: true
 
       - name: Clean build artifacts
         run: |
@@ -24,16 +31,21 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Get Flutter dependencies (after cleaning)
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      # Optional: remove this step, flutter build ios runs pod install automatically
-      # - name: Install CocoaPods
-      #   run: pod install
-      #   working-directory: ios
+      - name: Install CocoaPods dependencies
+        run: |
+          sudo gem install cocoapods -v 1.14.0
+          cd ios && pod install --repo-update && cd ..
+        shell: bash
 
       - name: Build iOS app (Release)
-        run: flutter build ios --release --no-codesign
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=FLUTTER_BUILD_MODE=release \
+            --dart-define=FLUTTER_BUILD_NAME=2.0 \
+            --dart-define=FLUTTER_BUILD_NUMBER=20
 
       - name: Create Payload folder
         run: mkdir Payload
