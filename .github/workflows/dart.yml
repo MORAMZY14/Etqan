@@ -15,43 +15,56 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.19.5'  # Specify exact version for consistency
           architecture: x64
+
+      - name: Set up Ruby and CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1.2'  # Match your local Ruby version if possible
+          bundler-cache: true
 
       - name: Clean build artifacts
         run: |
           flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks ios/Flutter/Flutter.podspec
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Get Flutter dependencies (after cleaning)
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      # Optional: remove this step, flutter build ios runs pod install automatically
-      # - name: Install CocoaPods
-      #   run: pod install
-      #   working-directory: ios
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update --verbose
+        env:
+          FLUTTER_BUILD_MODE: release
 
       - name: Build iOS app (Release)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --verbose
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_15.2.app  # Specify Xcode version if needed
 
-      - name: Create Payload folder
-        run: mkdir Payload
+      - name: Create IPA package
+        run: |
+          mkdir -p Payload
+          mv Runner.app Payload/
+          zip -qr Etqan.ipa Payload
         working-directory: build/ios/iphoneos
 
-      - name: Move Runner.app to Payload
-        run: mv Runner.app Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Zip the .ipa file
-        run: zip -qq -r -9 Etqan.ipa Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Upload to GitHub Releases
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Etqan.ipa
-          tag: v2.0
-          overwrite: true
-          body: "iOS release v2.0"
+          name: Etqan-iOS-IPA
+          path: build/ios/iphoneos/Etqan.ipa
+
+      # Alternative: Upload to GitHub Releases (uncomment if needed)
+      # - name: Upload to GitHub Releases
+      #   uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     file: build/ios/iphoneos/Etqan.ipa
+      #     tag: ${{ github.ref_name }}
+      #     overwrite: true
+      #     body: "Automated iOS build"
