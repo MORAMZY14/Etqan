@@ -33,7 +33,8 @@ target 'Runner' do
 
   # Add explicitly required pods
   pod 'Firebase/Functions'
-  pod 'GTMSessionFetcher/Core' # <- This is the critical missing module
+  pod 'GTMSessionFetcher/Core'
+  pod 'FirebaseSharedSwift', '1.3.0'# <- This is the critical missing module
 end
 
 post_install do |installer|
@@ -41,9 +42,10 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     target.build_configurations.each do |config|
-      config.build_settings['SWIFT_VERSION'] = '5.0' # ⬅️ Updated from 5.0 to 5.9
+      config.build_settings['SWIFT_VERSION'] = '5.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
     end
   end
 end
+

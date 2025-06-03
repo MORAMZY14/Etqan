@@ -58,5 +58,10 @@
 		<key>NSContactsUsageDescription</key>
         <string>We need access to your contacts to save user information.</string>
 
+        <key>UIFileSharingEnabled</key>
+        <true/>
+        <key>LSSupportsOpeningDocumentsInPlace</key>
+        <true/>
+
 	</dict>
 </plist>

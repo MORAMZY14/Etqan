@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=C:\flutter"
-export "FLUTTER_APPLICATION_PATH=G:\Etqan\Version\Last\etqan-main\etqan-main\Etqan"
+export "FLUTTER_APPLICATION_PATH=C:\Users\Mohamed Ramzy\Downloads\Compressed\Etqan-main_3\Etqan-main"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
