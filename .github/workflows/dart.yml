@@ -15,9 +15,7 @@ jobs:
           channel: 'stable'
           architecture: x64
           cache: true
-        id: flutter-action  # Add ID to reference outputs later
-
-      - run: flutter pub get
+        id: flutter-action
 
       # Get the actual Flutter installation path
       - name: Get Flutter path
@@ -29,10 +27,26 @@ jobs:
           cd ios
           # Use the environment variable with actual Flutter path
           sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
+          # Remove strict version constraint for FirebaseSharedSwift
+          sed -i '' "s/FirebaseSharedSwift (= [0-9.]*)/FirebaseSharedSwift/" Podfile
           # Verify the changes
           echo "Updated Podfile:"
-          grep "require" Podfile
-          echo "Actual Flutter path: ${{ env.FLUTTER_ROOT }}"
+          grep -E "require|FirebaseSharedSwift" Podfile
+
+      # Update FlutterFire plugins to ensure compatibility
+      - name: Update FlutterFire dependencies
+        run: |
+          flutter pub add --overwrite \
+            firebase_core:latest \
+            firebase_auth:latest \
+            cloud_firestore:latest \
+            firebase_storage:latest \
+            firebase_messaging:latest \
+            firebase_app_check:latest \
+            cloud_functions:latest
+        continue-on-error: true
+
+      - run: flutter pub get
 
       - name: Install CocoaPods dependencies
         run: |
