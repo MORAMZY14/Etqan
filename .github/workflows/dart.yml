@@ -15,17 +15,24 @@ jobs:
           channel: 'stable'
           architecture: x64
           cache: true
+        id: flutter-action  # Add ID to reference outputs later
 
       - run: flutter pub get
 
-      # Fix Podfile paths before installing pods
-      - name: Fix Flutter Path in Podfile
+      # Get the actual Flutter installation path
+      - name: Get Flutter path
+        run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
+
+      # Fix Podfile using the actual Flutter path
+      - name: Fix Podfile paths
         run: |
           cd ios
-          # Update Windows paths to macOS compatible paths
-          sed -i '' 's|C:\\\\flutter|${HOME}/flutter|g' Podfile
-          sed -i '' 's|require File.expand_path(.*|require "${HOME}/flutter/packages/flutter_tools/bin/podhelper"|g' Podfile
-          cat Podfile  # Verify changes
+          # Use the environment variable with actual Flutter path
+          sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
+          # Verify the changes
+          echo "Updated Podfile:"
+          grep "require" Podfile
+          echo "Actual Flutter path: ${{ env.FLUTTER_ROOT }}"
 
       - name: Install CocoaPods dependencies
         run: |
