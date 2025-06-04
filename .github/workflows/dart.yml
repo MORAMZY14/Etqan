@@ -23,20 +23,27 @@ jobs:
       - name: Fix Podfile paths
         run: |
           cd ios
+          # Fix Flutter path
           sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
+          
+          # Remove existing FirebaseSharedSwift line
           sed -i '' '/FirebaseSharedSwift/d' Podfile
+          
+          # Add correct FirebaseSharedSwift version
           echo "pod 'FirebaseSharedSwift', '11.10.0'" >> Podfile
-          sed -i '' '/Firebase/ s/$/, \":11\.10\.0\"/' Podfile
+          
+          # Set global Firebase version (CORRECTED APPROACH)
+          sed -i '' "1i\\
+          \$FirebaseSDKVersion = '11.10.0'
+          " Podfile
+          
+          # Show modified Podfile
           echo "Modified Podfile:"
           cat Podfile
 
-      # Use flexible version constraints
       - name: Update FlutterFire dependencies
         run: |
-          # Create backup
-          cp pubspec.yaml pubspec.yaml.bak
-          
-          # Use flexible version constraints
+          # Use minimum version constraints
           sed -i '' 's/firebase_core: .*/firebase_core: ">=2.0.0"/' pubspec.yaml
           sed -i '' 's/firebase_auth: .*/firebase_auth: ">=4.0.0"/' pubspec.yaml
           sed -i '' 's/cloud_firestore: .*/cloud_firestore: ">=4.0.0"/' pubspec.yaml
@@ -44,18 +51,9 @@ jobs:
           sed -i '' 's/firebase_messaging: .*/firebase_messaging: ">=14.0.0"/' pubspec.yaml
           sed -i '' 's/firebase_app_check: .*/firebase_app_check: ">=0.0.1"/' pubspec.yaml
           sed -i '' 's/cloud_functions: .*/cloud_functions: ">=4.0.0"/' pubspec.yaml
-          
-          # Show changes
-          echo "Updated pubspec.yaml:"
-          diff pubspec.yaml.bak pubspec.yaml || true
 
-      # Run pub upgrade to resolve compatible versions
       - name: Resolve dependencies
-        run: |
-          flutter pub upgrade --major-versions
-        continue-on-error: true
-
-      - run: flutter pub get
+        run: flutter pub upgrade
 
       - name: Install CocoaPods dependencies
         run: |
