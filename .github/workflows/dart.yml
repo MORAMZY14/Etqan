@@ -14,15 +14,23 @@ jobs:
         with:
           channel: 'stable'
           architecture: x64
-          cache: true  # Enable caching for faster builds
-      
+          cache: true
+
       - run: flutter pub get
 
-      # CocoaPods handling with retry logic
-      - name: Setup CocoaPods
+      # Fix Podfile paths before installing pods
+      - name: Fix Flutter Path in Podfile
         run: |
           cd ios
-          pod install --repo-update || pod install --repo-update
+          # Update Windows paths to macOS compatible paths
+          sed -i '' 's|C:\\\\flutter|${HOME}/flutter|g' Podfile
+          sed -i '' 's|require File.expand_path(.*|require "${HOME}/flutter/packages/flutter_tools/bin/podhelper"|g' Podfile
+          cat Podfile  # Verify changes
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
         timeout-minutes: 15
 
       - run: flutter build ios --release --no-codesign
@@ -40,5 +48,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/ios/iphoneos/Etqan.ipa
-          tag: ${{ github.ref_name }}  # Use current branch/tag
+          tag: ${{ github.ref_name }}
           overwrite: true
