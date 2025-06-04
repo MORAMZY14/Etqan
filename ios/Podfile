@@ -35,6 +35,7 @@ target 'Runner' do
   pod 'Firebase/Functions'
   pod 'GTMSessionFetcher/Core'
   pod 'FirebaseSharedSwift', '1.3.0'# <- This is the critical missing module
+  pod 'PhoneNumberKit', '~> 3.3'
 end
 
 post_install do |installer|
