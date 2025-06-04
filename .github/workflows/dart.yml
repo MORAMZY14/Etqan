@@ -25,40 +25,31 @@ jobs:
       - name: Fix Podfile paths
         run: |
           cd ios
-          # Use the environment variable with actual Flutter path
           sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
-          # Verify the changes
-          echo "Updated Podfile:"
-          grep "require" Podfile
-          echo "Actual Flutter path: ${{ env.FLUTTER_ROOT }}"
-
-      # Add explicit FirebaseSharedSwift version
-      - name: Add FirebaseSharedSwift version
-        run: |
-          cd ios
-          # Remove existing FirebaseSharedSwift line
           sed -i '' '/FirebaseSharedSwift/d' Podfile
-          # Add compatible version specification
           echo "pod 'FirebaseSharedSwift', '11.10.0'" >> Podfile
-          # Force all Firebase pods to same version
-          sed -i '' 's/^ *pod .*Firebase/  pod &/g' Podfile
           sed -i '' '/Firebase/ s/$/, \":11\.10\.0\"/' Podfile
-          # Show modified Podfile
           echo "Modified Podfile:"
           cat Podfile
 
-      # Update FlutterFire plugins
+      # Update pubspec.yaml with compatible versions
       - name: Update FlutterFire dependencies
         run: |
-          flutter pub add --overwrite \
-            firebase_core:^2.27.0 \
-            firebase_auth:^4.19.0 \
-            cloud_firestore:^4.16.0 \
-            firebase_storage:^11.7.0 \
-            firebase_messaging:^14.18.0 \
-            firebase_app_check:^0.1.2+1 \
-            cloud_functions:^4.7.0
-        continue-on-error: true
+          # Create backup of pubspec.yaml
+          cp pubspec.yaml pubspec.yaml.bak
+          
+          # Update dependency versions in pubspec.yaml
+          sed -i '' 's/firebase_core: .*/firebase_core: ^2.27.0/' pubspec.yaml
+          sed -i '' 's/firebase_auth: .*/firebase_auth: ^4.19.0/' pubspec.yaml
+          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ^4.16.0/' pubspec.yaml
+          sed -i '' 's/firebase_storage: .*/firebase_storage: ^11.7.0/' pubspec.yaml
+          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ^14.18.0/' pubspec.yaml
+          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ^0.1.2+1/' pubspec.yaml
+          sed -i '' 's/cloud_functions: .*/cloud_functions: ^4.7.0/' pubspec.yaml
+          
+          # Show changes
+          echo "Updated pubspec.yaml:"
+          diff pubspec.yaml.bak pubspec.yaml || true
 
       - run: flutter pub get
 
