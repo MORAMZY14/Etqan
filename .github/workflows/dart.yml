@@ -17,11 +17,9 @@ jobs:
           cache: true
         id: flutter-action
 
-      # Get the actual Flutter installation path
       - name: Get Flutter path
         run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
 
-      # Fix Podfile paths
       - name: Fix Podfile paths
         run: |
           cd ios
@@ -32,24 +30,30 @@ jobs:
           echo "Modified Podfile:"
           cat Podfile
 
-      # Update pubspec.yaml with compatible versions
+      # Use flexible version constraints
       - name: Update FlutterFire dependencies
         run: |
-          # Create backup of pubspec.yaml
+          # Create backup
           cp pubspec.yaml pubspec.yaml.bak
           
-          # Update dependency versions in pubspec.yaml
-          sed -i '' 's/firebase_core: .*/firebase_core: ^2.27.0/' pubspec.yaml
-          sed -i '' 's/firebase_auth: .*/firebase_auth: ^4.19.0/' pubspec.yaml
-          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ^4.16.0/' pubspec.yaml
-          sed -i '' 's/firebase_storage: .*/firebase_storage: ^11.7.0/' pubspec.yaml
-          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ^14.18.0/' pubspec.yaml
-          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ^0.1.2+1/' pubspec.yaml
-          sed -i '' 's/cloud_functions: .*/cloud_functions: ^4.7.0/' pubspec.yaml
+          # Use flexible version constraints
+          sed -i '' 's/firebase_core: .*/firebase_core: ">=2.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_auth: .*/firebase_auth: ">=4.0.0"/' pubspec.yaml
+          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ">=4.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_storage: .*/firebase_storage: ">=11.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ">=14.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ">=0.0.1"/' pubspec.yaml
+          sed -i '' 's/cloud_functions: .*/cloud_functions: ">=4.0.0"/' pubspec.yaml
           
           # Show changes
           echo "Updated pubspec.yaml:"
           diff pubspec.yaml.bak pubspec.yaml || true
+
+      # Run pub upgrade to resolve compatible versions
+      - name: Resolve dependencies
+        run: |
+          flutter pub upgrade --major-versions
+        continue-on-error: true
 
       - run: flutter pub get
 
@@ -77,3 +81,4 @@ jobs:
           file: build/ios/iphoneos/Etqan.ipa
           tag: ${{ github.ref_name }}
           overwrite: true
+          
