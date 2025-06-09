@@ -11,6 +11,7 @@ import 'register_page.dart';
 import 'tour_page.dart';
 import 'about_page.dart';
 import 'user_page.dart';
+import 'package:flutter/rendering.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 class WishlistPage extends StatefulWidget {
@@ -22,16 +22,11 @@ class _WishlistPageState extends State<WishlistPage> {
   final Set<String> _selectedCourses = <String>{};
   Uint8List? _paymentScreenshotBytes;
   String _paymentLink = '';
-  bool _isUploading = false;
-  List<Map<String, dynamic>> _courses = []; // Added to store courses synchronously
 
   @override
   void initState() {
     super.initState();
-    _coursesFuture = _fetchCourses().then((courses) {
-      setState(() => _courses = courses); // Update courses list
-      return courses;
-    });
+    _coursesFuture = _fetchCourses();
     _fetchPaymentLink();
   }
 
@@ -55,17 +50,17 @@ class _WishlistPageState extends State<WishlistPage> {
 
     for (final doc in snapshot.docs) {
       final courseName = doc.data()['name'] ?? 'Unknown Course';
-      final List<dynamic> signedUsersByCourse = doc.data()['signedUsers'] ?? [];
-      final List<dynamic> approvedUsersByCourse = doc.data()?['ApprovedUsers'] ?? [];
+      final List<dynamic> PendingStudentByCourse = doc.data()['PendingStudent'] ?? [];
+      final List<dynamic> approvedUsersByCourse = doc.data()['ApprovedUsers'] ?? [];
 
       if (signedCoursesByUser.contains(courseName) ||
-          signedUsersByCourse.contains(userEmail) ||
+          PendingStudentByCourse.contains(userEmail) ||
           approvedUsersByCourse.contains(userEmail)) {
         continue;
       }
 
       final imageUrl = await _getCourseImageUrl(courseName);
-      final coursePrice = doc.data()['price'] ?? 0;
+      final coursePrice = doc.data()?['price'] ?? 0;
 
       result.add({
         'name': courseName,
@@ -167,6 +162,8 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   void _showScreenshotUploadDialog() {
+    Uint8List? tempScreenshotBytes = _paymentScreenshotBytes;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -199,7 +196,7 @@ class _WishlistPageState extends State<WishlistPage> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: _paymentScreenshotBytes == null
+                  child: tempScreenshotBytes == null
                       ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -211,76 +208,70 @@ class _WishlistPageState extends State<WishlistPage> {
                   )
                       : ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.memory(
-                        _paymentScreenshotBytes!,
-                        fit: BoxFit.cover
-                    ),
+                    child: Image.memory(tempScreenshotBytes!, fit: BoxFit.cover),
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (_isUploading) ...[
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  const Text('Processing transaction...'),
-                  const SizedBox(height: 24),
-                ],
-                if (!_isUploading)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () async {
-                          final picker = ImagePicker();
-                          final pickedFile = await picker.pickImage(
-                              source: ImageSource.gallery);
-                          if (pickedFile != null) {
-                            final bytes = await pickedFile.readAsBytes();
-                            setState(() {
-                              _paymentScreenshotBytes = bytes;
-                            });
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: const BorderSide(color: Colors.blue),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final pickedFile = await picker.pickImage(
+                            source: ImageSource.gallery);
+                        if (pickedFile != null) {
+                          final bytes = await pickedFile.readAsBytes();
+                          setState(() {
+                            tempScreenshotBytes = bytes;
+                          });
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('Choose File',
-                            style: TextStyle(color: Colors.blue)),
+                        side: const BorderSide(color: Colors.blue),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
-                      ElevatedButton(
-                        onPressed: _paymentScreenshotBytes == null
-                            ? null
-                            : () async {
-                          setState(() => _isUploading = true);
-                          await _registerCourses();
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
+                      child: const Text('Choose File',
+                          style: TextStyle(color: Colors.blue)),
+                    ),
+                    ElevatedButton(
+                      onPressed: tempScreenshotBytes == null
+                          ? null
+                          : () {
+                        Navigator.pop(context);
+                        setState(() {
+                          _paymentScreenshotBytes = tempScreenshotBytes;
+                        });
+                        _registerCourses();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('Submit',
-                            style: TextStyle(color: Colors.white)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
-                    ],
-                  ),
+                      child: const Text('Submit',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                if (!_isUploading)
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {
                       _paymentScreenshotBytes = null;
-                    },
-                    child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                  ),
+                    });
+                  },
+                  child:
+                  const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
               ],
             ),
           ),
@@ -288,116 +279,91 @@ class _WishlistPageState extends State<WishlistPage> {
       ),
     );
   }
-
-  Future<void> _registerCourses() async {
+  void _registerCourses() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null || _paymentScreenshotBytes == null) return;
+
+    final userEmail = user.email!;
+    final registrationDate = DateTime.now();
 
     try {
-      final userEmail = user.email!;
-      final userDoc = _firestore.collection('Users').doc(userEmail);
-      final selectedCourseNames = _selectedCourses.toList();
-      final registrationDate = DateTime.now();
+      // Fetch student's Name and ID from Students collection
+      final studentDoc = await _firestore.collection('Students').doc(userEmail).get();
+      final studentName = studentDoc.data()?['name'] ?? '';
+      final studentID = studentDoc.data()?['studentID'] ?? '';
 
-      // Create transaction ID with timestamp
-      final transactionId = 'TRX-${DateFormat('yyyyMMdd-HHmmss').format(registrationDate)}';
+      // Upload payment screenshot
+      final storageRef = _storage.ref().child(
+          'transactions/$userEmail/${registrationDate.millisecondsSinceEpoch}.png'
+      );
+      await storageRef.putData(_paymentScreenshotBytes!);
+      final downloadUrl = await storageRef.getDownloadURL();
 
-      // Format date for storage path
-      final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(registrationDate);
+      final batch = _firestore.batch();
 
-      // 1. Create transaction record in Firestore
-      final transactionData = {
-        'userId': userEmail,
-        'userName': user.displayName ?? 'User',
-        'courses': selectedCourseNames,
-        'timestamp': registrationDate,
-        'status': 'pending',
-        'transactionId': transactionId,
-        'totalAmount': _calculateTotalAmount(),
-      };
+      for (final courseName in _selectedCourses) {
+        // Get course number from Courses collection
+        final courseDocRef = _firestore.collection('Courses').doc(courseName);
+        final courseDocSnap = await courseDocRef.get();
+        final courseNumber = courseDocSnap.data()?['number'] ?? '';
 
-      await _firestore.collection('Transaction').doc(transactionId).set(transactionData);
+        // Build formatted timestamp for transaction document ID
+        final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(registrationDate);
+        final transactionDocId = '$courseName-$formattedDate';
 
-      // 2. Upload payment screenshot to Firebase Storage
-      if (_paymentScreenshotBytes != null) {
-        final storageRef = _storage.ref().child(
-          'transactions/$userEmail/$formattedDate.png',
-        );
-        await storageRef.putData(_paymentScreenshotBytes!);
-        final imageUrl = await storageRef.getDownloadURL();
+        // Reference to student's transactions subcollection
+        final transactionDocRef = _firestore
+            .collection('Transactions')
+            .doc(userEmail)
+            .collection('transactions')
+            .doc(transactionDocId);
 
-        // Update transaction with image URL
-        await _firestore.collection('Transaction').doc(transactionId).update({
-          'paymentProofUrl': imageUrl,
-        });
-      }
-
-      // 3. Update user's registered courses
-      final List<Map<String, dynamic>> registeredCoursesData = selectedCourseNames.map((courseName) {
-        return {
+        // Add transaction document including studentName and studentID
+        batch.set(transactionDocRef, {
+          'transactionNumber': transactionDocRef.id,
+          'studentEmail': userEmail,
+          'studentName': studentName, // <-- Added studentName
+          'studentID': studentID,     // <-- Added studentID
           'courseName': courseName,
-          'registrationDate': registrationDate,
-          'transactionId': transactionId,
-          'status': 'pending',
-        };
-      }).toList();
+          'courseNumber': courseNumber,
+          'timestamp': registrationDate,
+          'paymentScreenshot': downloadUrl,
+          'status': 'pending', // possible: pending, rejected, approved
+        });
 
-      await userDoc.update({
-        'RegisteredCourses': FieldValue.arrayUnion(registeredCoursesData),
-      });
-
-      // 4. Update each course's signed users
-      for (final courseName in selectedCourseNames) {
-        await _firestore.collection('Courses').doc(courseName).update({
-          'signedUsers': FieldValue.arrayUnion([userEmail]),
+        // Update PendingStudent array in the course doc
+        batch.update(courseDocRef, {
+          'PendingStudent': FieldValue.arrayUnion([userEmail]),
         });
       }
 
-      // Show success message
+      // Commit batch updates
+      await batch.commit();
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$transactionId created successfully! Awaiting admin approval.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
+          const SnackBar(content: Text('Registration successful! Awaiting approval.')),
         );
       }
 
-      // Refresh the course list
+      // Clear selected courses and payment screenshot, refresh UI
       setState(() {
         _selectedCourses.clear();
         _paymentScreenshotBytes = null;
-        _isUploading = false;
-        _coursesFuture = _fetchCourses().then((courses) {
-          setState(() => _courses = courses); // Update courses list on refresh
-          return courses;
-        });
+        _coursesFuture = _fetchCourses();
       });
     } catch (e) {
-      setState(() => _isUploading = false);
-
-      // Show error message
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: ${e.toString()}')),
         );
       }
     }
   }
 
-  double _calculateTotalAmount() {
-    double total = 0.0;
-    for (final course in _courses) { // Fixed: Use _courses instead of _coursesFuture
-      if (_selectedCourses.contains(course['name'])) {
-        total += (course['price'] as num).toDouble();
-      }
-    }
-    return total;
-  }
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -561,6 +527,7 @@ class _WishlistPageState extends State<WishlistPage> {
       ),
       floatingActionButton: _selectedCourses.isNotEmpty
           ? FloatingActionButton.extended(
+        heroTag: UniqueKey(), // FIX FOR HERO TAG CONFLICT
         onPressed: _showPaymentDialog,
         backgroundColor: Colors.blue,
         elevation: 4,

@@ -565,18 +565,6 @@ class _UserPageState extends State<UserPage> {
                       title: "Student ID",
                       value: _studentId,
                     ),
-                    Divider(height: 32),
-                    _buildProfileItem(
-                      icon: Icons.school,
-                      title: "Enrolled Courses",
-                      value: "12 courses",
-                    ),
-                    Divider(height: 32),
-                    _buildProfileItem(
-                      icon: Icons.favorite_border,
-                      title: "Wishlist",
-                      value: "5 items",
-                    ),
                   ],
                 ),
               ),
@@ -595,14 +583,6 @@ class _UserPageState extends State<UserPage> {
               icon: Icons.edit,
               title: "Edit Profile",
               onTap: () => setState(() => _isEditingProfile = true),
-            ),
-            _buildSettingItem(
-              icon: Icons.notifications,
-              title: "Notifications",
-            ),
-            _buildSettingItem(
-              icon: Icons.payment,
-              title: "Payment Methods",
             ),
             _buildSettingItem(
               icon: Icons.help_center,
@@ -647,14 +627,6 @@ class _UserPageState extends State<UserPage> {
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Full Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          SizedBox(height: 16),
-          TextFormField(
-            controller: _idController,
-            decoration: InputDecoration(
-              labelText: 'Student ID',
               border: OutlineInputBorder(),
             ),
           ),

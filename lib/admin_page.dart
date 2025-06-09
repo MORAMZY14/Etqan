@@ -14,6 +14,7 @@ import 'admin_login_page.dart';
 import 'course_management_page.dart';
 import 'admin-settings_page.dart';
 import 'approval_admin_page.dart';
+import 'payment_approval_page.dart';
 
 class AdminPage extends StatefulWidget {
   final String email;
@@ -373,10 +374,13 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         ),
       },
       {
-        'title': 'Payments',
+        'title': 'Payment Approval',
         'icon': Icons.payment,
         'color': const Color(0xFFFFA726),
-        'onTap': () {},
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PaymentApprovalPage()),
+        ),
       },
       {
         'title': 'Users',
