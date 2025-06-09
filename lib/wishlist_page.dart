@@ -42,20 +42,19 @@ class _WishlistPageState extends State<WishlistPage> {
     if (user == null) return [];
 
     final userEmail = user.email!;
-    final userDoc = await _firestore.collection('Users').doc(userEmail).get();
-    final List<dynamic> signedCoursesByUser = userDoc.data()?['courses'] ?? [];
+
+    // Fetch student's registered courses
+    final studentDoc = await _firestore.collection('Students').doc(userEmail).get();
+    final List<dynamic> registeredCourses = studentDoc.data()?['registeredCourses'] ?? [];
 
     final snapshot = await _firestore.collection('Courses').get();
     final List<Map<String, dynamic>> result = [];
 
     for (final doc in snapshot.docs) {
       final courseName = doc.data()['name'] ?? 'Unknown Course';
-      final List<dynamic> PendingStudentByCourse = doc.data()['PendingStudent'] ?? [];
-      final List<dynamic> approvedUsersByCourse = doc.data()['ApprovedUsers'] ?? [];
 
-      if (signedCoursesByUser.contains(courseName) ||
-          PendingStudentByCourse.contains(userEmail) ||
-          approvedUsersByCourse.contains(userEmail)) {
+      // Skip if user has already registered for this course
+      if (registeredCourses.contains(courseName)) {
         continue;
       }
 
@@ -279,6 +278,7 @@ class _WishlistPageState extends State<WishlistPage> {
       ),
     );
   }
+
   void _registerCourses() async {
     final user = _auth.currentUser;
     if (user == null || _paymentScreenshotBytes == null) return;
@@ -287,12 +287,12 @@ class _WishlistPageState extends State<WishlistPage> {
     final registrationDate = DateTime.now();
 
     try {
-      // Fetch student's Name and ID from Students collection
+      // Fetch student details
       final studentDoc = await _firestore.collection('Students').doc(userEmail).get();
       final studentName = studentDoc.data()?['name'] ?? '';
       final studentID = studentDoc.data()?['studentID'] ?? '';
 
-      // Upload payment screenshot
+      // Upload payment proof
       final storageRef = _storage.ref().child(
           'transactions/$userEmail/${registrationDate.millisecondsSinceEpoch}.png'
       );
@@ -300,44 +300,52 @@ class _WishlistPageState extends State<WishlistPage> {
       final downloadUrl = await storageRef.getDownloadURL();
 
       final batch = _firestore.batch();
+      final studentRef = _firestore.collection('Students').doc(userEmail);
+
+      // Add selected courses to student's registeredCourses
+      batch.update(studentRef, {
+        'registeredCourses': FieldValue.arrayUnion(_selectedCourses.toList())
+      });
 
       for (final courseName in _selectedCourses) {
-        // Get course number from Courses collection
-        final courseDocRef = _firestore.collection('Courses').doc(courseName);
-        final courseDocSnap = await courseDocRef.get();
-        final courseNumber = courseDocSnap.data()?['number'] ?? '';
+        // Get course reference
+        final courseRef = _firestore.collection('Courses').doc(courseName);
+        final courseDoc = await courseRef.get();
+        final courseNumber = courseDoc.data()?['number'] ?? '';
 
-        // Build formatted timestamp for transaction document ID
+        // Create unique transaction ID
         final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(registrationDate);
-        final transactionDocId = '$courseName-$formattedDate';
+        final transactionId = '$courseName-$formattedDate';
 
-        // Reference to student's transactions subcollection
-        final transactionDocRef = _firestore
+        // Create transaction record
+        final transactionRef = _firestore
             .collection('Transactions')
             .doc(userEmail)
             .collection('transactions')
-            .doc(transactionDocId);
+            .doc(transactionId);
 
-        // Add transaction document including studentName and studentID
-        batch.set(transactionDocRef, {
-          'transactionNumber': transactionDocRef.id,
+        batch.set(transactionRef, {
+          'transactionNumber': transactionId,
           'studentEmail': userEmail,
-          'studentName': studentName, // <-- Added studentName
-          'studentID': studentID,     // <-- Added studentID
+          'studentName': studentName,
+          'studentID': studentID,
           'courseName': courseName,
           'courseNumber': courseNumber,
           'timestamp': registrationDate,
           'paymentScreenshot': downloadUrl,
-          'status': 'pending', // possible: pending, rejected, approved
+          'status': 'pending',
+          'registeredAt': FieldValue.serverTimestamp(),
         });
 
-        // Update PendingStudent array in the course doc
-        batch.update(courseDocRef, {
+        // Add to course's pending list
+        batch.update(courseRef, {
           'PendingStudent': FieldValue.arrayUnion([userEmail]),
+          'pendingSince': {
+            userEmail: FieldValue.serverTimestamp(),
+          },
         });
       }
 
-      // Commit batch updates
       await batch.commit();
 
       if (context.mounted) {
@@ -346,7 +354,7 @@ class _WishlistPageState extends State<WishlistPage> {
         );
       }
 
-      // Clear selected courses and payment screenshot, refresh UI
+      // Reset state and refresh
       setState(() {
         _selectedCourses.clear();
         _paymentScreenshotBytes = null;
@@ -360,10 +368,6 @@ class _WishlistPageState extends State<WishlistPage> {
       }
     }
   }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -527,7 +531,7 @@ class _WishlistPageState extends State<WishlistPage> {
       ),
       floatingActionButton: _selectedCourses.isNotEmpty
           ? FloatingActionButton.extended(
-        heroTag: UniqueKey(), // FIX FOR HERO TAG CONFLICT
+        heroTag: UniqueKey(),
         onPressed: _showPaymentDialog,
         backgroundColor: Colors.blue,
         elevation: 4,
