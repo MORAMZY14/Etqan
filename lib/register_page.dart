@@ -1,3 +1,5 @@
+import 'dart:math';
+import 'verification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -33,8 +35,19 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isGmail = true;
   bool _passwordsMatch = true;
   bool _agreeToTerms = false;
+  bool _verificationEmailSent = false;
 
   Uint8List? _selectedImageBytes;
+
+  // Modern color palette
+  final Color _primaryColor = const Color(0xFF6C63FF); // Purple
+  final Color _secondaryColor = const Color(0xFF4D8DEE); // Blue
+  final Color _accentColor = const Color(0xFF00BFA6); // Teal
+  final Color _backgroundColor = const Color(0xFFF8F9FA); // Light gray
+  final Color _surfaceColor = Colors.white;
+  final Color _errorColor = const Color(0xFFFF5252); // Red
+  final Color _textColor = const Color(0xFF2D3748); // Dark gray
+  final Color _hintColor = const Color(0xFFA0AEC0); // Light gray
 
   @override
   void initState() {
@@ -46,6 +59,13 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.addListener(_updateButtonState);
     _universityController.addListener(_updateButtonState);
     _branchController.addListener(_updateButtonState);
+  }
+
+  Future<void> _sendVerificationEmail(String email, String code) async {
+    await FirebaseFirestore.instance.collection('verificationCodes').doc(email).set({
+      'code': code,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
@@ -79,6 +99,11 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
+  String _generateVerificationCode() {
+    final random = Random();
+    return (100000 + random.nextInt(900000)).toString();
+  }
+
   Future<void> _registerUser() async {
     setState(() {
       _isLoading = true;
@@ -91,20 +116,50 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text.trim(),
       );
 
-      await _createStudent(userCredential.user!);
-      _showSuccessDialog();
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        final verificationCode = _generateVerificationCode();
+        await _sendVerificationEmail(_emailController.text.trim(), verificationCode);
+        await _createStudent(user);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerificationScreen(
+              email: _emailController.text.trim(),
+            ),
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration failed: ${e.message}')),
+        SnackBar(
+          content: Text('Registration failed: ${e.message}'),
+          backgroundColor: _errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration failed: ${e.toString()}')),
+        SnackBar(
+          content: Text('Registration failed: ${e.toString()}'),
+          backgroundColor: _errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -119,6 +174,7 @@ class _RegisterPageState extends State<RegisterPage> {
       'branch': _branchController.text.trim(),
       'studentID': await _generateStudentID(),
       'createdAt': FieldValue.serverTimestamp(),
+      'emailVerified': false,
     });
 
     if (_selectedImageBytes != null) {
@@ -165,68 +221,120 @@ class _RegisterPageState extends State<RegisterPage> {
 
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Agreement License and Rules'),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.8,
-                height: MediaQuery.of(context).size.height * 0.6,
+            return Dialog(
+              backgroundColor: _surfaceColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
+                    Text(
+                      'Terms and Conditions',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: _textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      height: MediaQuery.of(context).size.height * 0.4,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _backgroundColor,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: SingleChildScrollView(
-                        child: const Text(
-                          'By registering, you agree to our terms and conditions...',
-                          textAlign: TextAlign.justify,
+                        child: Text(
+                          'By registering, you agree to our terms and conditions...\n\n'
+                              '1. You must be a current student at an accredited university\n'
+                              '2. You agree to use this platform for educational purposes only\n'
+                              '3. You will not share your account credentials with others\n'
+                              '4. You will respect the intellectual property of others\n'
+                              '5. You understand that violations may result in account termination\n\n'
+                              'We respect your privacy and will handle your personal information '
+                              'in accordance with our Privacy Policy.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _textColor.withOpacity(0.8),
+                          ),
                         ),
                       ),
                     ),
-                    CheckboxListTile(
-                      title: const Text('I agree to the terms and conditions'),
-                      value: localAgreeToTerms,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          localAgreeToTerms = value ?? false;
-                        });
-                      },
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Transform.scale(
+                          scale: 1.2,
+                          child: Checkbox(
+                            value: localAgreeToTerms,
+                            activeColor: _primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                localAgreeToTerms = value ?? false;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'I agree to the terms',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _hintColor,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: localAgreeToTerms
+                              ? () {
+                            setState(() {
+                              _agreeToTerms = localAgreeToTerms;
+                            });
+                            Navigator.of(context).pop();
+                            _updateButtonState();
+                          }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            elevation: 0,
+                          ),
+                          child: const Text('Confirm'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _agreeToTerms = localAgreeToTerms;
-                    });
-                    Navigator.of(context).pop();
-                    _updateButtonState();
-                  },
-                  child: const Text('Confirm'),
-                ),
-              ],
             );
           },
-        );
-      },
-    );
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Registration Successful'),
-          content: const Text('Your registration was completed successfully. You can now log in.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: const Text('OK'),
-            ),
-          ],
         );
       },
     );
@@ -235,29 +343,49 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: _backgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 120.0,
+            expandedHeight: 180.0,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
+              title: Text(
                 'Create Account',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
               ),
               centerTitle: true,
               background: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF1A73E8), Color(0xFF0D47A1)],
+                    colors: [_primaryColor, _secondaryColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Text(
+                      'Join our community of learners',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -265,44 +393,49 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Column(
+                children: [
+                  // Profile picture section
+                  _buildProfilePictureSection(),
+                  const SizedBox(height: 32),
+
+                  // Form container
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _surfaceColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildProfilePictureSection(),
-                      const SizedBox(height: 28),
-                      _buildEmailField(),
-                      const SizedBox(height: 20),
-                      _buildNameField(),
-                      const SizedBox(height: 20),
-                      _buildPasswordFields(),
-                      const SizedBox(height: 20),
-                      _buildPhoneField(),
-                      const SizedBox(height: 20),
-                      _buildUniversityField(),
-                      const SizedBox(height: 20),
-                      _buildBranchField(),
-                      const SizedBox(height: 24),
-                      _buildTermsAgreement(),
-                      const SizedBox(height: 28),
-                      _buildRegisterButton(),
-                    ],
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildEmailField(),
+                        const SizedBox(height: 20),
+                        _buildNameField(),
+                        const SizedBox(height: 20),
+                        _buildPasswordFields(),
+                        const SizedBox(height: 20),
+                        _buildPhoneField(),
+                        const SizedBox(height: 20),
+                        _buildUniversityField(),
+                        const SizedBox(height: 20),
+                        _buildBranchField(),
+                        const SizedBox(height: 24),
+                        _buildTermsAgreement(),
+                        const SizedBox(height: 28),
+                        _buildRegisterButton(),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -312,72 +445,93 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildProfilePictureSection() {
-    return Center(
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFE0E0E0),
-                    width: 2,
-                  ),
+    return Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _primaryColor.withOpacity(0.2),
+                  width: 3,
                 ),
-                child: ClipOval(
-                  child: _selectedImageBytes != null
-                      ? Image.memory(
-                    _selectedImageBytes!,
-                    fit: BoxFit.cover,
-                  )
-                      : Container(
-                    color: const Color(0xFFF5F7FA),
-                    child: const Icon(
-                      Icons.person_outline_rounded,
-                      size: 50,
-                      color: Color(0xFF9E9E9E),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: _selectedImageBytes != null
+                    ? Image.memory(
+                  _selectedImageBytes!,
+                  fit: BoxFit.cover,
+                )
+                    : Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        _primaryColor.withOpacity(0.1),
+                        _secondaryColor.withOpacity(0.1),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                  ),
+                  child: Icon(
+                    Icons.person_outline_rounded,
+                    size: 50,
+                    color: _primaryColor.withOpacity(0.4),
                   ),
                 ),
               ),
-              Positioned(
-                bottom: -4,
-                right: -4,
-                child: GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A73E8),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_rounded,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Add Profile Photo',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
             ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _primaryColor.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Add Profile Photo',
+          style: TextStyle(
+            fontSize: 15,
+            color: _textColor.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -389,19 +543,21 @@ class _RegisterPageState extends State<RegisterPage> {
           'Email Address',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            color: _textColor,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
+          style: TextStyle(color: _textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFFF5F7FA),
-            prefixIcon: const Icon(Icons.email_rounded, color: Colors.grey),
+            fillColor: _backgroundColor,
+            prefixIcon: Icon(Icons.email_rounded, color: _hintColor),
             hintText: 'your.email@gmail.com',
+            hintStyle: TextStyle(color: _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -410,18 +566,28 @@ class _RegisterPageState extends State<RegisterPage> {
               vertical: 16,
               horizontal: 16,
             ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _primaryColor, width: 1.5),
+            ),
           ),
           onChanged: (value) => _updateButtonState(),
         ),
         if (!_isGmail)
           Padding(
             padding: const EdgeInsets.only(top: 6.0),
-            child: Text(
-              'Please use a Gmail address',
-              style: TextStyle(
-                color: Colors.red[400],
-                fontSize: 13,
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, size: 16, color: _errorColor),
+                const SizedBox(width: 4),
+                Text(
+                  'Please use a Gmail address',
+                  style: TextStyle(
+                    color: _errorColor,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
           ),
       ],
@@ -436,19 +602,21 @@ class _RegisterPageState extends State<RegisterPage> {
           'Full Name',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            color: _textColor,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _nameController,
           keyboardType: TextInputType.name,
+          style: TextStyle(color: _textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFFF5F7FA),
-            prefixIcon: const Icon(Icons.person_rounded, color: Colors.grey),
+            fillColor: _backgroundColor,
+            prefixIcon: Icon(Icons.person_rounded, color: _hintColor),
             hintText: 'Your full name',
+            hintStyle: TextStyle(color: _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -456,6 +624,10 @@ class _RegisterPageState extends State<RegisterPage> {
             contentPadding: const EdgeInsets.symmetric(
               vertical: 16,
               horizontal: 16,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _primaryColor, width: 1.5),
             ),
           ),
           onChanged: (value) => _updateButtonState(),
@@ -478,24 +650,25 @@ class _RegisterPageState extends State<RegisterPage> {
                     'Password',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
+                      color: _textColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    style: TextStyle(color: _textColor),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFFF5F7FA),
-                      prefixIcon: const Icon(Icons.lock_rounded, color: Colors.grey),
+                      fillColor: _backgroundColor,
+                      prefixIcon: Icon(Icons.lock_rounded, color: _hintColor),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
                               ? Icons.visibility_off_rounded
                               : Icons.visibility_rounded,
-                          color: Colors.grey,
+                          color: _hintColor,
                         ),
                         onPressed: () {
                           setState(() {
@@ -504,6 +677,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                       ),
                       hintText: '••••••••',
+                      hintStyle: TextStyle(color: _hintColor),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -511,6 +685,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       contentPadding: const EdgeInsets.symmetric(
                         vertical: 16,
                         horizontal: 16,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _primaryColor, width: 1.5),
                       ),
                     ),
                     onChanged: (value) => _updateButtonState(),
@@ -527,24 +705,25 @@ class _RegisterPageState extends State<RegisterPage> {
                     'Confirm Password',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
+                      color: _textColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
+                    style: TextStyle(color: _textColor),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFFF5F7FA),
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
+                      fillColor: _backgroundColor,
+                      prefixIcon: Icon(Icons.lock_outline_rounded, color: _hintColor),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureConfirmPassword
                               ? Icons.visibility_off_rounded
                               : Icons.visibility_rounded,
-                          color: Colors.grey,
+                          color: _hintColor,
                         ),
                         onPressed: () {
                           setState(() {
@@ -553,6 +732,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                       ),
                       hintText: '••••••••',
+                      hintStyle: TextStyle(color: _hintColor),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -560,6 +740,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       contentPadding: const EdgeInsets.symmetric(
                         vertical: 16,
                         horizontal: 16,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _primaryColor, width: 1.5),
                       ),
                     ),
                     onChanged: (value) => _updateButtonState(),
@@ -572,12 +756,18 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!_passwordsMatch)
           Padding(
             padding: const EdgeInsets.only(top: 6.0),
-            child: Text(
-              'Passwords do not match',
-              style: TextStyle(
-                color: Colors.red[400],
-                fontSize: 13,
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, size: 16, color: _errorColor),
+                const SizedBox(width: 4),
+                Text(
+                  'Passwords do not match',
+                  style: TextStyle(
+                    color: _errorColor,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
           ),
       ],
@@ -592,28 +782,35 @@ class _RegisterPageState extends State<RegisterPage> {
           'Phone Number',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            color: _textColor,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             Container(
+              height: 56,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: _backgroundColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedDialCode,
-                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.grey),
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: _hintColor),
                   items: <String>['+20', '+1', '+44', '+91']
                       .map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
-                      child: Text(value, style: const TextStyle(fontSize: 16)),
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: _textColor,
+                        ),
+                      ),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
@@ -629,11 +826,13 @@ class _RegisterPageState extends State<RegisterPage> {
               child: TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                style: TextStyle(color: _textColor),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: const Color(0xFFF5F7FA),
-                  prefixIcon: const Icon(Icons.phone_iphone_rounded, color: Colors.grey),
+                  fillColor: _backgroundColor,
+                  prefixIcon: Icon(Icons.phone_iphone_rounded, color: _hintColor),
                   hintText: '123 456 7890',
+                  hintStyle: TextStyle(color: _hintColor),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -641,6 +840,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   contentPadding: const EdgeInsets.symmetric(
                     vertical: 16,
                     horizontal: 16,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _primaryColor, width: 1.5),
                   ),
                 ),
                 onChanged: (value) => _updateButtonState(),
@@ -660,18 +863,20 @@ class _RegisterPageState extends State<RegisterPage> {
           'University',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            color: _textColor,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _universityController,
+          style: TextStyle(color: _textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFFF5F7FA),
-            prefixIcon: const Icon(Icons.school_rounded, color: Colors.grey),
+            fillColor: _backgroundColor,
+            prefixIcon: Icon(Icons.school_rounded, color: _hintColor),
             hintText: 'University name',
+            hintStyle: TextStyle(color: _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -679,6 +884,10 @@ class _RegisterPageState extends State<RegisterPage> {
             contentPadding: const EdgeInsets.symmetric(
               vertical: 16,
               horizontal: 16,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _primaryColor, width: 1.5),
             ),
           ),
           onChanged: (value) => _updateButtonState(),
@@ -695,18 +904,20 @@ class _RegisterPageState extends State<RegisterPage> {
           'Branch/Department',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            color: _textColor,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _branchController,
+          style: TextStyle(color: _textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFFF5F7FA),
-            prefixIcon: const Icon(Icons.business_center_rounded, color: Colors.grey),
+            fillColor: _backgroundColor,
+            prefixIcon: Icon(Icons.business_center_rounded, color: _hintColor),
             hintText: 'Your field of study',
+            hintStyle: TextStyle(color: _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -714,6 +925,10 @@ class _RegisterPageState extends State<RegisterPage> {
             contentPadding: const EdgeInsets.symmetric(
               vertical: 16,
               horizontal: 16,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _primaryColor, width: 1.5),
             ),
           ),
           onChanged: (value) => _updateButtonState(),
@@ -730,7 +945,7 @@ class _RegisterPageState extends State<RegisterPage> {
           scale: 1.2,
           child: Checkbox(
             value: _agreeToTerms,
-            activeColor: const Color(0xFF1A73E8),
+            activeColor: _primaryColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
@@ -747,17 +962,20 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Text(
+              Text(
                 'I agree to the ',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _hintColor,
+                ),
               ),
               GestureDetector(
                 onTap: _showAgreementDialog,
-                child: const Text(
+                child: Text(
                   'Terms and Conditions',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF1A73E8),
+                    color: _primaryColor,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
                   ),
@@ -774,15 +992,20 @@ class _RegisterPageState extends State<RegisterPage> {
     return SizedBox(
       height: 56,
       child: ElevatedButton(
-        onPressed: _isRegisterButtonEnabled ? _registerUser : null,
+        onPressed: _verificationEmailSent
+            ? null
+            : (_isRegisterButtonEnabled ? _registerUser : null),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1A73E8),
+          backgroundColor: _verificationEmailSent
+              ? _hintColor
+              : _isRegisterButtonEnabled ? _primaryColor : _hintColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16),
+          shadowColor: _primaryColor.withOpacity(0.3),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -793,12 +1016,21 @@ class _RegisterPageState extends State<RegisterPage> {
             color: Colors.white,
           ),
         )
-            : const Text(
-          'Create Account',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+            : Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _verificationEmailSent ? 'Verification Sent' : 'Create Account',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (!_isLoading && _isRegisterButtonEnabled)
+              const SizedBox(width: 8),
+            if (!_isLoading && _isRegisterButtonEnabled)
+              Icon(Icons.arrow_forward_rounded, size: 20),
+          ],
         ),
       ),
     );
