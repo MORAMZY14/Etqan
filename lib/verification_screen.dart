@@ -17,7 +17,7 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen>
-    with SingleTickerProviderStateMixin {
+    with  TickerProviderStateMixin {
   final TextEditingController _codeController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FocusNode _codeFocusNode = FocusNode();
@@ -31,20 +31,25 @@ class _VerificationScreenState extends State<VerificationScreen>
   late AnimationController _entryController;
   late AnimationController _successController;
   late AnimationController _buttonScaleController;
+  late AnimationController _liquidController;
+  late AnimationController _bottomBarController;
 
   // Animations
   late Animation<double> _opacityAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _successScale;
+  late Animation<double> _liquidAnimation;
+  late Animation<double> _bottomBarAnimation;
 
-  // Modern color palette
-  final Color _primaryColor = const Color(0xFF6C63FF); // Purple
-  final Color _backgroundColor = const Color(0xFFF8F9FA); // Light gray
-  final Color _cardColor = Colors.white;
-  final Color _textColor = const Color(0xFF2D3748); // Dark gray
-  final Color _secondaryTextColor = const Color(0xFF718096); // Gray
-  final Color _errorColor = const Color(0xFFE53E3E); // Red
+  // Liquid Glass colors
+  final Color _primaryColor = const Color(0xFF007AFF); // iOS blue
+  final Color _backgroundColor = const Color(0xFFF2F2F7); // iOS system gray 6
+  final Color _cardColor = Colors.white.withOpacity(0.8);
+  final Color _textColor = const Color(0xFF1C1C1E); // iOS label
+  final Color _secondaryTextColor = const Color(0xFF636366); // iOS secondary label
+  final Color _errorColor = const Color(0xFFFF3B30); // iOS red
+  final Color _glassEffectColor = Colors.white.withOpacity(0.6);
 
   @override
   void initState() {
@@ -99,7 +104,34 @@ class _VerificationScreenState extends State<VerificationScreen>
       ),
     );
 
+    // Liquid glass effect animation
+    _liquidController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    )..repeat();
+
+    _liquidAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _liquidController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // Bottom bar animation
+    _bottomBarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _bottomBarAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _bottomBarController,
+        curve: Curves.easeOutQuint,
+      ),
+    );
+
     _entryController.forward();
+    _bottomBarController.forward();
     _codeFocusNode.requestFocus();
     _startCooldownTimer();
   }
@@ -110,6 +142,8 @@ class _VerificationScreenState extends State<VerificationScreen>
     _entryController.dispose();
     _buttonScaleController.dispose();
     _successController.dispose();
+    _liquidController.dispose();
+    _bottomBarController.dispose();
     _codeFocusNode.dispose();
     super.dispose();
   }
@@ -184,6 +218,7 @@ class _VerificationScreenState extends State<VerificationScreen>
         child: Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          insetPadding: const EdgeInsets.all(24),
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -207,8 +242,8 @@ class _VerificationScreenState extends State<VerificationScreen>
                     color: _primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_rounded,
-                    color: Color(0xFF6C63FF),
+                  child: Icon(Icons.check_rounded,
+                    color: _primaryColor,
                     size: 60,
                   ),
                 ),
@@ -356,160 +391,269 @@ class _VerificationScreenState extends State<VerificationScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _backgroundColor,
-      body: SafeArea(
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: FadeTransition(
-            opacity: _opacityAnimation,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  IconButton(
-                    icon: Icon(Icons.arrow_back_rounded, color: _textColor),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Verify Your Email',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: _textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'We sent a 6-digit verification code to',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: _secondaryTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.email,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _codeController,
-                          focusNode: _codeFocusNode,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(6),
-                          ],
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: _textColor,
-                            letterSpacing: 8,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '• • • • • •',
-                            hintStyle: TextStyle(
-                              color: _secondaryTextColor.withOpacity(0.3),
-                              letterSpacing: 8,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: _backgroundColor,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        ScaleTransition(
-                          scale: _scaleAnimation,
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _verifyCode,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _primaryColor,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  color: Colors.white,
-                                ),
-                              )
-                                  : const Text(
-                                'Verify Account',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: TextButton(
-                      onPressed: _isResendDisabled ? null : _resendCode,
-                      child: Text(
-                        _isResendDisabled
-                            ? 'Resend code in $_resendCooldown seconds'
-                            : 'Didn\'t receive code? Resend',
-                        style: TextStyle(
-                          color: _isResendDisabled
-                              ? _secondaryTextColor
-                              : _primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+  Widget _buildLiquidGlassEffect() {
+    return AnimatedBuilder(
+      animation: _liquidAnimation,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _LiquidGlassPainter(
+            animationValue: _liquidAnimation.value,
+            color: _glassEffectColor,
+          ),
+          size: Size(MediaQuery.of(context).size.width, 200),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 1),
+        end: Offset.zero,
+      ).animate(_bottomBarController),
+      child: Container(
+        height: 80,
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: TextButton(
+            onPressed: _isResendDisabled ? null : _resendCode,
+            child: Text(
+              _isResendDisabled
+                  ? 'Resend code in $_resendCooldown seconds'
+                  : 'Didn\'t receive code? Resend',
+              style: TextStyle(
+                color: _isResendDisabled
+                    ? _secondaryTextColor
+                    : _primaryColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      body: Stack(
+        children: [
+          // Liquid glass background effect
+          Positioned.fill(
+            child: _buildLiquidGlassEffect(),
+          ),
+
+          SafeArea(
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _opacityAnimation,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      IconButton(
+                        icon: Icon(Icons.arrow_back_rounded, color: _textColor),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Verify Your Email',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: _textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'We sent a 6-digit verification code to',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.email,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: _cardColor,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: _codeController,
+                              focusNode: _codeFocusNode,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
+                              ],
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: _textColor,
+                                letterSpacing: 8,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: '• • • • • •',
+                                hintStyle: TextStyle(
+                                  color: _secondaryTextColor.withOpacity(0.3),
+                                  letterSpacing: 8,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: _backgroundColor,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            ScaleTransition(
+                              scale: _scaleAnimation,
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _verifyCode,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primaryColor,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                      : const Text(
+                                    'Verify Account',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 100), // Space for bottom bar
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom bar with slide animation
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildBottomBar(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiquidGlassPainter extends CustomPainter {
+  final double animationValue;
+  final Color color;
+
+  _LiquidGlassPainter({required this.animationValue, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
+
+    final path = Path();
+
+    // Create a wave-like pattern that moves with animation
+    final waveHeight = size.height * 0.2;
+    final waveLength = size.width * 2;
+
+    path.moveTo(0, size.height);
+
+    for (double i = 0; i <= size.width; i++) {
+      final x = i;
+      final y = size.height * 0.7 +
+          sin((i / waveLength * 2 * pi) + (animationValue * 2 * pi)) * waveHeight;
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Add some random bubbles for the liquid effect
+    final random = Random(animationValue.toInt());
+    final bubblePaint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 10; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height * 0.7;
+      final radius = random.nextDouble() * 20 + 5;
+      canvas.drawCircle(Offset(x, y), radius, bubblePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LiquidGlassPainter oldDelegate) {
+    return animationValue != oldDelegate.animationValue || color != oldDelegate.color;
   }
 }

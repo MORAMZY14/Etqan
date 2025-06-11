@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,13 +40,13 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<bool> _isStudent(String email) async {
+  Future<Map<String, dynamic>?> _getStudentData(String email) async {
     try {
       final doc = await _firestore.collection('Students').doc(email).get();
-      return doc.exists;
+      return doc.data();
     } catch (e) {
-      print('Error checking student status: $e');
-      return false;
+      print('Error fetching student data: $e');
+      return null;
     }
   }
 
@@ -58,7 +60,10 @@ class _LoginPageState extends State<LoginPage> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email and password')),
+        const SnackBar(
+          content: Text('Please enter both email and password'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       setState(() {
         _isLoading = false;
@@ -74,11 +79,10 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
 
-      // 2. Verify student status
-      bool isStudent = await _isStudent(email);
+      // 2. Get student data from Firestore
+      Map<String, dynamic>? studentData = await _getStudentData(email);
 
-      if (!isStudent) {
-        // Sign out non-student users immediately
+      if (studentData == null) {
         await _firebaseAuth.signOut();
         throw FirebaseAuthException(
           code: 'not-student',
@@ -86,7 +90,164 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
 
-      // 3. Handle successful login
+      // 3. Check email verification status in Firestore
+      bool isEmailVerified = studentData['emailVerified'] ?? false;
+
+      if (!isEmailVerified) {
+        // Sign out immediately if email not verified
+        await _firebaseAuth.signOut();
+
+        // Show Glass UI popup
+        await showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.3),
+                    Colors.white.withOpacity(0.1),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Padding(
+                  padding: const EdgeInsets.all(25),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.orange.withOpacity(0.2),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.5),
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.email_outlined,
+                          size: 40,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Email Not Verified',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      const Text(
+                        'Please verify your email address to continue.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: Colors.white.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 15),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () async {
+                                try {
+                                  await userCredential.user!.sendEmailVerification();
+                                  // Update Firestore verification status
+                                  await _firestore.collection('Students').doc(email).update({
+                                    'verificationSentAt': FieldValue.serverTimestamp(),
+                                  });
+                                  if (!mounted) return;
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Verification email sent!'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to send: $e'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.orange.withOpacity(0.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 15),
+                              ),
+                              child: const Text(
+                                'Resend Email',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 4. Handle successful login
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setString('email', email);
@@ -107,11 +268,17 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Authentication failed: ${e.message ?? 'Unknown error'}')),
+        SnackBar(
+          content: Text('Authentication failed: ${e.message ?? 'Unknown error'}'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unexpected error: $e')),
+        SnackBar(
+          content: Text('Unexpected error: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) {
@@ -157,17 +324,25 @@ class _LoginPageState extends State<LoginPage> {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Password reset email sent.')),
+                      content: Text('Password reset email sent.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter your email.')),
+                  const SnackBar(
+                    content: Text('Please enter your email.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             },

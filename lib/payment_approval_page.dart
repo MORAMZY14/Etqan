@@ -16,11 +16,27 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
   late TabController _tabController;
   bool _isFirebaseInitialized = false;
 
+  // Modern color palette
+  final Color _backgroundColor = const Color(0xFF0F1016);
+  final Color _cardColor = const Color(0xFF1E2029);
+  final Color _primaryColor = const Color(0xFF6C5CE7);
+  final Color _successColor = const Color(0xFF00B894);
+  final Color _warningColor = const Color(0xFFFDCB6E);
+  final Color _errorColor = const Color(0xFFD63031);
+  final Color _textPrimary = const Color(0xFFF5F6FA);
+  final Color _textSecondary = const Color(0xFFBDC3C7);
+
   @override
   void initState() {
     super.initState();
     _initializeFirebase();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeFirebase() async {
@@ -46,7 +62,6 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         final String? studentEmail = data['studentEmail']?.toString();
         final String? studentID = data['studentID']?.toString();
 
-        // 1. CREATE APPROVING STUDENT DOCUMENT
         if (studentEmail != null && studentEmail.isNotEmpty &&
             studentID != null && studentID.isNotEmpty) {
           final approvingStudentRef = _firestore.collection('ApprovingStudents').doc();
@@ -59,51 +74,62 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
           });
         } else {
           debugPrint('Missing studentEmail or studentId for ApprovingStudents document');
-
-          // Show error to admin
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Missing student data - cannot create approval record'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+              SnackBar(
+                content: const Text('Missing student data - cannot create approval record'),
+                backgroundColor: _warningColor,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ));
+              }
+
+              if (courseName != null && courseName.isNotEmpty &&
+              studentEmail != null && studentEmail.isNotEmpty) {
+            final courseRef = _firestore.collection('Courses').doc(courseName);
+            batch.update(courseRef, {
+              'PendingStudent': FieldValue.arrayRemove([studentEmail]),
+              'signedUsers': FieldValue.arrayUnion([studentEmail]),
+            });
+          } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Missing required fields (courseId or studentEmail)'),
+              backgroundColor: _warningColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ));
+        }
         }
 
-        // 2. UPDATE COURSE ENROLLMENT
-        if (courseName != null && courseName.isNotEmpty &&
-            studentEmail != null && studentEmail.isNotEmpty) {
-          final courseRef = _firestore.collection('Courses').doc(courseName);
-          batch.update(courseRef, {
-            'PendingStudent': FieldValue.arrayRemove([studentEmail]),
-            'signedUsers': FieldValue.arrayUnion([studentEmail]),
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Missing required fields (courseId or studentEmail)'),
-              backgroundColor: Colors.orange,
+            await batch.commit();
+        debugPrint('Transaction updated successfully');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Transaction ${newStatus == 'approved' ? 'approved' : 'dismissed'}'),
+            backgroundColor: newStatus == 'approved' ? _successColor : _warningColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        }
-      }
-
-      await batch.commit();
-      debugPrint('Transaction updated successfully');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Transaction ${newStatus == 'approved' ? 'approved' : 'dismissed'}'),
-          backgroundColor: newStatus == 'approved' ? Colors.green : Colors.orange,
-        ),
-      );
-    } catch (e, stackTrace) {
+          ),
+        );
+      } catch (e, stackTrace) {
       debugPrint('Error updating payment status: $e');
       debugPrint('Stack trace: $stackTrace');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update status: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: _errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -111,104 +137,208 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
 
   void showTransactionDialog(DocumentSnapshot transaction, String statusFilter) {
     final data = transaction.data() as Map<String, dynamic>;
+    final screenSize = MediaQuery.of(context).size;
+    final isLargeScreen = screenSize.width > 400; // iPhone 16 Pro Max width
 
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: const Color(0xFF1E2029),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+          backgroundColor: _cardColor,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isLargeScreen ? 24 : 16,
+            vertical: 24,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Transaction Details',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildDetailRow(Icons.person, 'Name:', data['studentName']?.toString() ?? 'N/A'),
-                _buildDetailRow(Icons.email, 'Email:', data['studentEmail']?.toString() ?? 'N/A'),
-                _buildDetailRow(Icons.credit_card, 'Student ID:', data['studentId']?.toString() ?? 'N/A'),
-                _buildDetailRow(Icons.school, 'Course:', data['courseName']?.toString() ?? 'N/A'),
-                const SizedBox(height: 10),
-                _buildStatusIndicator(data['status']?.toString() ?? 'pending'),
-                const SizedBox(height: 20),
-
-                if (data['paymentScreenshot'] != null) ...[
-                  Text('Payment Proof', style: _detailTitleStyle),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      data['paymentScreenshot'].toString(),
-                      height: 250,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) {
-                        return progress == null
-                            ? child
-                            : Container(
-                          height: 250,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade800,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Center(child: CircularProgressIndicator()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                if (statusFilter == 'pending')
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: _buildActionButton(
-                            'Approve',
-                            Colors.green,
-                            Icons.check_circle,
-                                () {
-                              updatePaymentStatus(transaction, 'approved');
-                              Navigator.pop(context);
-                            }
+                      Text(
+                        'Transaction Details',
+                        style: GoogleFonts.poppins(
+                          fontSize: isLargeScreen ? 22 : 20,
+                          fontWeight: FontWeight.w600,
+                          color: _textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildActionButton(
-                            'Dismiss',
-                            Colors.red,
-                            Icons.cancel,
-                                () {
-                              updatePaymentStatus(transaction, 'dismissed');
-                              Navigator.pop(context);
-                            }
-                        ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: _textSecondary, size: 24),
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
-              ],
+                  const SizedBox(height: 24),
+
+                  // Modern detail cards
+                  _buildDetailCard(
+                    icon: Icons.person_outline,
+                    title: 'Student Information',
+                    items: [
+                      _DetailItem('Name', data['studentName']?.toString() ?? 'N/A'),
+                      _DetailItem('Email', data['studentEmail']?.toString() ?? 'N/A'),
+                      _DetailItem('Student ID', data['studentId']?.toString() ?? 'N/A'),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  _buildDetailCard(
+                    icon: Icons.school_outlined,
+                    title: 'Course Information',
+                    items: [
+                      _DetailItem('Course', data['courseName']?.toString() ?? 'N/A'),
+                      _DetailItem('Date', '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Status chip
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(data['status']?.toString() ?? 'pending').withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _getStatusColor(data['status']?.toString() ?? 'pending').withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStatusIcon(data['status']?.toString() ?? 'pending'),
+                            size: 18,
+                            color: _getStatusColor(data['status']?.toString() ?? 'pending'),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            (data['status']?.toString() ?? 'pending').toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              color: _getStatusColor(data['status']?.toString() ?? 'pending'),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Payment proof section
+                  if (data['paymentScreenshot'] != null) ...[
+                    Text(
+                      'Payment Proof',
+                      style: GoogleFonts.poppins(
+                        color: _textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () {
+                        // TODO: Implement full-screen image viewer
+                      },
+                      child: Hero(
+                        tag: 'payment-image-${transaction.id}',
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: isLargeScreen ? 280 : 220,
+                            decoration: BoxDecoration(
+                              color: _backgroundColor.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Stack(
+                              children: [
+                                Image.network(
+                                  data['paymentScreenshot'].toString(),
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    return progress == null
+                                        ? child
+                                        : Center(
+                                      child: CircularProgressIndicator(
+                                        color: _primaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Positioned(
+                                  bottom: 12,
+                                  right: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.fullscreen,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Action buttons for pending transactions
+                  if (statusFilter == 'pending')
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildModernButton(
+                            label: 'Approve',
+                            icon: Icons.check_rounded,
+                            color: _successColor,
+                            onPressed: () {
+                              updatePaymentStatus(transaction, 'approved');
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildModernButton(
+                            label: 'Reject',
+                            icon: Icons.close_rounded,
+                            color: _errorColor,
+                            onPressed: () {
+                              updatePaymentStatus(transaction, 'dismissed');
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -216,69 +346,77 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+  Widget _buildDetailCard({
+    required IconData icon,
+    required String title,
+    required List<_DetailItem> items,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _backgroundColor.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _cardColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.blueAccent),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+          Row(
+            children: [
+              Icon(icon, size: 20, color: _primaryColor),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  color: _textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: _detailLabelStyle),
-                const SizedBox(height: 4),
-                Text(value, style: _detailValueStyle),
+                Text(
+                  '${item.label}:',
+                  style: GoogleFonts.poppins(
+                    color: _textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    item.value,
+                    style: GoogleFonts.poppins(
+                      color: _textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ],
             ),
-          ),
+          )).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildStatusIndicator(String status) {
-    final color = status == 'approved'
-        ? Colors.green
-        : status == 'dismissed'
-        ? Colors.red
-        : Colors.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            status.toUpperCase(),
-            style: GoogleFonts.poppins(
-              color: color,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String text, Color color, IconData icon, VoidCallback onPressed) {
+  Widget _buildModernButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
@@ -286,16 +424,26 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         foregroundColor: color,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: color.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: color.withOpacity(0.3),
+            width: 1.5,
+          ),
         ),
+        elevation: 0,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(text, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
         ],
       ),
     );
@@ -304,50 +452,38 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
   Widget _buildTransactionCard(DocumentSnapshot transaction, String statusFilter) {
     final data = transaction.data() as Map<String, dynamic>;
     final status = data['status']?.toString() ?? 'pending';
-    final statusColor = status == 'approved'
-        ? Colors.green
-        : status == 'dismissed'
-        ? Colors.red
-        : Colors.orange;
+    final statusColor = _getStatusColor(status);
+    final screenSize = MediaQuery.of(context).size;
+    final isLargeScreen = screenSize.width > 400;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2029),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
+      margin: EdgeInsets.symmetric(
+        horizontal: isLargeScreen ? 16 : 12,
+        vertical: isLargeScreen ? 8 : 6,
       ),
       child: Material(
-        color: Colors.transparent,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(20),
+        elevation: 0,
         child: InkWell(
           onTap: () => showTransactionDialog(transaction, statusFilter),
           borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Status indicator
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 6,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2D3A),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Icon(
-                    Icons.receipt_long,
                     color: statusColor,
-                    size: 28,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
                 const SizedBox(width: 16),
+
+                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,23 +494,30 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                           Text(
                             data['studentName']?.toString() ?? 'Unknown',
                             style: GoogleFonts.poppins(
-                              fontSize: 16,
+                              fontSize: isLargeScreen ? 18 : 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: _textPrimary,
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: statusColor.withOpacity(0.3),
+                                width: 1,
+                              ),
                             ),
                             child: Text(
                               status,
                               style: GoogleFonts.poppins(
                                 color: statusColor,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -384,36 +527,41 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                       Text(
                         data['courseName']?.toString() ?? 'No course',
                         style: GoogleFonts.poppins(
-                          color: Colors.white70,
+                          color: _textSecondary,
                           fontSize: 14,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 16,
+                            color: _textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                            style: GoogleFonts.poppins(
+                              color: _textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const Spacer(),
                           Text(
                             'View Details',
                             style: GoogleFonts.poppins(
-                              color: const Color(0xFF6C63FF),
-                              fontWeight: FontWeight.w500,
+                              color: _primaryColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF6C63FF)),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: _primaryColor,
+                          ),
                         ],
                       ),
                     ],
@@ -429,8 +577,8 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
 
   Widget transactionList(String statusFilter) {
     if (!_isFirebaseInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        child: CircularProgressIndicator(color: _primaryColor),
       );
     }
 
@@ -439,10 +587,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
-            child: CircularProgressIndicator(
-              color: const Color(0xFF6C63FF),
-              strokeWidth: 2,
-            ),
+            child: CircularProgressIndicator(color: _primaryColor),
           );
         }
 
@@ -452,15 +597,15 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.receipt_long,
+                  Icons.receipt_long_outlined,
                   size: 60,
-                  color: Colors.grey.withOpacity(0.5),
+                  color: _textSecondary.withOpacity(0.5),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'No transactions found',
                   style: GoogleFonts.poppins(
-                    color: Colors.white70,
+                    color: _textSecondary,
                     fontSize: 16,
                   ),
                 ),
@@ -485,13 +630,13 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                       ? Icons.check_circle_outline
                       : Icons.hourglass_empty,
                   size: 60,
-                  color: Colors.grey.withOpacity(0.5),
+                  color: _textSecondary.withOpacity(0.5),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'No $statusFilter transactions',
                   style: GoogleFonts.poppins(
-                    color: Colors.white70,
+                    color: _textSecondary,
                     fontSize: 16,
                   ),
                 ),
@@ -501,6 +646,10 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         }
 
         return ListView.builder(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            top: 8,
+          ),
           itemCount: filteredDocs.length,
           itemBuilder: (context, index) {
             final transaction = filteredDocs[index];
@@ -515,16 +664,16 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
   Widget build(BuildContext context) {
     if (!_isFirebaseInitialized) {
       return Scaffold(
-        backgroundColor: const Color(0xFF13141C),
+        backgroundColor: _backgroundColor,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(),
+              CircularProgressIndicator(color: _primaryColor),
               const SizedBox(height: 20),
               Text(
                 'Initializing payment system...',
-                style: GoogleFonts.poppins(color: Colors.white),
+                style: GoogleFonts.poppins(color: _textPrimary),
               ),
             ],
           ),
@@ -533,89 +682,105 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF13141C),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              backgroundColor: const Color(0xFF1E2029),
-              expandedHeight: 120,
-              floating: true,
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  'Payment Approval',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20,
+      backgroundColor: _backgroundColor,
+      body: SafeArea(
+        child: NestedScrollView(
+          physics: const ClampingScrollPhysics(),
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                backgroundColor: _cardColor,
+                expandedHeight: 140,
+                floating: true,
+                pinned: true,
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    'Payment Approval',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 22,
+                      color: _textPrimary,
+                    ),
                   ),
-                ),
-                centerTitle: true,
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF2A2D3A), Color(0xFF1E2029)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                  centerTitle: true,
+                  background: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_cardColor, _backgroundColor],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverTabBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(50),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6C63FF), Color(0xFF9D6BFF)],
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverTabBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      gradient: LinearGradient(
+                        colors: [_primaryColor, Color(0xFF9D6BFF)],
+                      ),
                     ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: _textPrimary,
+                    unselectedLabelColor: _textSecondary,
+                    labelStyle: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                    isScrollable: false,
+                    tabs: const [
+                      Tab(text: 'Pending'),
+                      Tab(text: 'Approved'),
+                    ],
                   ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                  unselectedLabelStyle: GoogleFonts.poppins(),
-                  tabs: const [
-                    Tab(text: 'Pending'),
-                    Tab(text: 'Approved'),
-                  ],
                 ),
               ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            transactionList('pending'),
-            transactionList('approved'),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              transactionList('pending'),
+              transactionList('approved'),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Styles
-  final TextStyle _detailTitleStyle = GoogleFonts.poppins(
-    color: Colors.white,
-    fontWeight: FontWeight.w500,
-    fontSize: 16,
-  );
+  // Helper methods
+  Color _getStatusColor(String status) {
+    return status == 'approved'
+        ? _successColor
+        : status == 'dismissed'
+        ? _errorColor
+        : _warningColor;
+  }
 
-  final TextStyle _detailLabelStyle = GoogleFonts.poppins(
-    color: Colors.white70,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  );
+  IconData _getStatusIcon(String status) {
+    return status == 'approved'
+        ? Icons.check_circle
+        : status == 'dismissed'
+        ? Icons.cancel
+        : Icons.pending;
+  }
+}
 
-  final TextStyle _detailValueStyle = GoogleFonts.poppins(
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-  );
+class _DetailItem {
+  final String label;
+  final String value;
+
+  _DetailItem(this.label, this.value);
 }
 
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
@@ -625,8 +790,19 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final _PaymentApprovalPageState state = context.findAncestorStateOfType<_PaymentApprovalPageState>()!;
+
     return Container(
-      color: const Color(0xFF1E2029),
+      decoration: BoxDecoration(
+        color: state._cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: tabBar,
     );
   }
