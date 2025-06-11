@@ -348,9 +348,17 @@ class _WishlistPageState extends State<WishlistPage> {
 
       await batch.commit();
 
+      // Trigger email function
+      await _firestore.collection('email_triggers').add({
+        'studentEmail': userEmail,
+        'studentName': studentName,
+        'triggerTime': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      });
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Awaiting approval.')),
+          const SnackBar(content: Text('Registration successful! Confirmation email will arrive shortly.')),
         );
       }
 
@@ -368,7 +376,6 @@ class _WishlistPageState extends State<WishlistPage> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
