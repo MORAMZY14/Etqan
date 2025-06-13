@@ -20,16 +20,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Fixed directory paths and added iOS build fixes
       - name: Set execute permissions for gradlew
         run: chmod +x android/gradlew
 
-      - name: Clean up build directory to save space
-        run: rm -rf build
+      - name: Clean up build directories
+        run: |
+          rm -rf build
+          rm -rf android/build
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: '17.x'
+          java-version: '17'
           distribution: 'temurin'
 
       - name: Set up Flutter
@@ -50,58 +53,65 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Clean project with Gradle
-        run: cd android && ./gradlew clean
-        shell: bash
+      # Fixed: Added working directory
+      - name: Clean Android project
+        working-directory: android
+        run: ./gradlew clean
 
+      # Fixed: Added working directory and output path
       - name: Build APK
+        working-directory: android
         run: |
-          cd android
           ./gradlew assembleRelease
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
           fi
-        shell: bash
 
-      - name: List APK Directory
-        run: ls -R build/app/outputs/flutter-apk
-
-      - name: Check if iOS Directory Exists
+      - name: Check iOS Directory Exists
         run: |
           if [ ! -d "ios" ]; then
             echo "iOS directory not found!"
             exit 1
           fi
 
+      # Fixed: Added working directory
       - name: Update CocoaPods
+        working-directory: ios
         run: |
-          cd ios
           pod repo update
           pod install
-        shell: bash
 
+      # Fixed: Corrected IPA creation path and added directory check
       - name: Build iOS App
         run: |
           flutter build ios --release --no-codesign
+          
+          # Create output directory if needed
+          mkdir -p build/ios/artifacts
+          
+          # Create IPA correctly
           cd build/ios/iphoneos
-          zip -r Etqan.ipa Runner.app
+          zip -r ../../artifacts/Etqan.ipa Runner.app
 
-      - name: Check if APK and IPA exist
+      # Fixed: Correct artifact paths
+      - name: Verify Artifacts Exist
         run: |
-          if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            echo "APK not found!"
+          if [ ! -f android/build/app/outputs/flutter-apk/app-release.apk ]; then
+            echo "Android APK not found!"
             exit 1
           fi
-          if [ ! -f build/ios/iphoneos/Etqan.ipa ]; then
-            echo "IPA not found!"
+          if [ ! -f build/ios/artifacts/Etqan.ipa ]; then
+            echo "iOS IPA not found!"
             exit 1
           fi
-        shell: bash
 
-      - name: Push to Releases
+      # Fixed: Correct artifact paths and tag format
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/ios/iphoneos/Etqan.ipa"
-          tag: v1.0.${{ github.run_number }}
+          artifacts: |
+            android/build/app/outputs/flutter-apk/app-release.apk
+            build/ios/artifacts/Etqan.ipa
+          tag: "v1.0.${{ github.run_number }}"
           token: ${{ secrets.GITHUB_TOKEN }}
