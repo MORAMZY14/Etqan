@@ -45,17 +45,14 @@ jobs:
           rm -rf ios/.symlinks
 
       - name: Update Android SDK Version
-        working-directory: android/app
         run: |
-          # Update compileSdkVersion to 35
-          sed -i '' 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' build.gradle
-          
-          # Update targetSdkVersion to 35
-          sed -i '' 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' build.gradle
+          # Update compileSdkVersion and targetSdkVersion to 35
+          sed -i '' 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' android/app/build.gradle
+          sed -i '' 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' android/app/build.gradle
           
           # Verify changes
           echo "Updated build.gradle:"
-          cat build.gradle
+          cat android/app/build.gradle
 
       - name: Cache Flutter and Gradle dependencies
         uses: actions/cache@v3
@@ -71,13 +68,9 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Clean and reset Gradle
+      - name: Clean Gradle project
         working-directory: android
-        run: |
-          ./gradlew clean
-          ./gradlew --stop
-          # Use gradle command to clean cache instead of rm
-          ./gradlew cleanBuildCache
+        run: ./gradlew clean
 
       - name: Build APK with retry
         working-directory: android
@@ -114,7 +107,6 @@ jobs:
       - name: Install CocoaPods dependencies
         working-directory: ios
         run: |
-          # Use sudo for pod installation if needed
           sudo gem install cocoapods
           pod repo update
           pod install --repo-update
