@@ -20,25 +20,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Fixed directory paths and added iOS build fixes
       - name: Set execute permissions for gradlew
         run: chmod +x android/gradlew
 
       - name: Clean up build directories
         run: |
+          flutter clean
           rm -rf build
           rm -rf android/build
+          rm -rf ios/Pods
+          rm -rf ios/.symlinks
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
+          channel: 'stable'
 
       - name: Cache Flutter and Gradle dependencies
         uses: actions/cache@v3
@@ -46,27 +50,45 @@ jobs:
           path: |
             ~/.pub-cache
             ~/.gradle/caches
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/*.gradle*') }}
+            ios/Pods
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/Podfile.lock') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      # Fixed: Added working directory
-      - name: Clean Android project
-        working-directory: android
-        run: ./gradlew clean
-
-      # Fixed: Added working directory and output path
-      - name: Build APK
+      - name: Clean and reset Gradle
         working-directory: android
         run: |
-          ./gradlew assembleRelease
+          ./gradlew clean
+          ./gradlew --stop
+          rm -rf ~/.gradle/caches/
+
+      - name: Build APK with retry
+        working-directory: android
+        run: |
+          # First try with normal build
+          if ./gradlew assembleRelease --stacktrace --info; then
+            echo "Build succeeded on first attempt"
+          else
+            echo "First build attempt failed, retrying with clean..."
+            ./gradlew clean
+            ./gradlew assembleRelease --stacktrace --info || exit 1
+          fi
+
           if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
             echo "APK not found!"
             exit 1
           fi
+
+      - name: Verify Android build
+        run: |
+          if [ ! -f android/build/app/outputs/flutter-apk/app-release.apk ]; then
+            echo "Android APK not found!"
+            exit 1
+          fi
+          echo "Android build verified"
 
       - name: Check iOS Directory Exists
         run: |
@@ -75,38 +97,31 @@ jobs:
             exit 1
           fi
 
-      # Fixed: Added working directory
-      - name: Update CocoaPods
+      - name: Install CocoaPods dependencies
         working-directory: ios
         run: |
           pod repo update
-          pod install
+          pod install --repo-update
 
-      # Fixed: Corrected IPA creation path and added directory check
       - name: Build iOS App
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --verbose
           
-          # Create output directory if needed
+          # Create artifacts directory
           mkdir -p build/ios/artifacts
           
-          # Create IPA correctly
+          # Create IPA
           cd build/ios/iphoneos
           zip -r ../../artifacts/Etqan.ipa Runner.app
 
-      # Fixed: Correct artifact paths
-      - name: Verify Artifacts Exist
+      - name: Verify iOS build
         run: |
-          if [ ! -f android/build/app/outputs/flutter-apk/app-release.apk ]; then
-            echo "Android APK not found!"
-            exit 1
-          fi
           if [ ! -f build/ios/artifacts/Etqan.ipa ]; then
             echo "iOS IPA not found!"
             exit 1
           fi
+          echo "iOS build verified"
 
-      # Fixed: Correct artifact paths and tag format
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
@@ -115,3 +130,6 @@ jobs:
             build/ios/artifacts/Etqan.ipa
           tag: "v1.0.${{ github.run_number }}"
           token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          body: "Automatic release for build ${{ github.run_number }}"
