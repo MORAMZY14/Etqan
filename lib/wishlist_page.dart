@@ -302,6 +302,22 @@ class _WishlistPageState extends State<WishlistPage> {
       final batch = _firestore.batch();
       final studentRef = _firestore.collection('Students').doc(userEmail);
 
+      // ===== CREATE REGISTRATION DOCUMENT =====
+      final registrationId = 'reg_${userEmail}_${registrationDate.millisecondsSinceEpoch}';
+      final registrationRef = _firestore.collection('Registrations').doc(registrationId);
+
+      batch.set(registrationRef, {
+        'studentEmail': userEmail,
+        'studentName': studentName,
+        'studentID': studentID,
+        'courses': _selectedCourses.toList(),
+        'registrationDate': registrationDate,
+        'paymentScreenshot': downloadUrl,
+        'status': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      // =======================================
+
       // Add selected courses to student's registeredCourses
       batch.update(studentRef, {
         'registeredCourses': FieldValue.arrayUnion(_selectedCourses.toList())
@@ -335,6 +351,7 @@ class _WishlistPageState extends State<WishlistPage> {
           'paymentScreenshot': downloadUrl,
           'status': 'pending',
           'registeredAt': FieldValue.serverTimestamp(),
+          'registrationId': registrationId,  // Link to parent registration
         });
 
         // Add to course's pending list
@@ -354,6 +371,7 @@ class _WishlistPageState extends State<WishlistPage> {
         'studentName': studentName,
         'triggerTime': DateTime.now().toIso8601String(),
         'status': 'pending',
+        'registrationId': registrationId,
       });
 
       if (context.mounted) {

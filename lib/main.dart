@@ -246,6 +246,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).colorScheme.primary,
+                            // FIX: Ensure text is visible
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

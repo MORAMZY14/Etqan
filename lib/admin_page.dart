@@ -15,6 +15,7 @@ import 'course_management_page.dart';
 import 'admin-settings_page.dart';
 import 'approval_admin_page.dart';
 import 'payment_approval_page.dart';
+import 'admin_report_page.dart';
 
 class AdminPage extends StatefulWidget {
   final String email;
@@ -398,6 +399,15 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const SettingsPage()),
+        ),
+      },
+      {
+        'title': 'Reports',
+        'icon': Icons.bar_chart,
+        'color': const Color(0xFFF44336),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ReportPage()),
         ),
       },
     ];
