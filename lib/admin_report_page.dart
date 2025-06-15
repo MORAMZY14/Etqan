@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-// import 'package:http/http.dart'; // http is not used
 import 'package:intl/intl.dart';
 
 class ReportPage extends StatefulWidget {
@@ -56,27 +55,50 @@ class _ReportPageState extends State<ReportPage> {
     });
 
     try {
-      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+      // Get all registrations in date range
+      final QuerySnapshot regSnapshot = await FirebaseFirestore.instance
           .collection('Registrations')
           .where('registrationDate',
           isGreaterThanOrEqualTo: Timestamp.fromDate(_startDate!),
           isLessThanOrEqualTo: Timestamp.fromDate(
-              _endDate!.add(const Duration(days: 1))
+            _endDate!.add(const Duration(days: 1)),
           ))
-          .get(); // Added .get() here
+          .get();
 
-      if (snapshot.docs.isEmpty) {
+      if (regSnapshot.docs.isEmpty) {
         setState(() => _errorMessage = 'No registrations found in the selected date range');
         return;
       }
 
-      final List<Map<String, dynamic>> registrations = [];
-      for (var doc in snapshot.docs) {
+      // Get all transactions for these registrations
+      final List<String> regIds = regSnapshot.docs.map((doc) => doc.id).toList();
+      final QuerySnapshot transactionSnapshot = await FirebaseFirestore.instance
+          .collection('Transactions')
+          .where('registrationId', whereIn: regIds)
+          .get();
+
+      // Create map of registrationId -> transaction status
+      final Map<String, String> statusMap = {};
+      for (var doc in transactionSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        final regId = data['registrationId'] as String? ?? '';
+        final status = data['status'] as String? ?? 'pending';
+        statusMap[regId] = status.toLowerCase();
+      }
+
+      // Combine registration data with status
+      final List<Map<String, dynamic>> registrations = [];
+      for (var doc in regSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final regId = doc.id;
+        final status = statusMap[regId] ?? 'pending';
+
         registrations.add({
+          'id': regId,
           'email': data['userEmail'] ?? 'No email',
           'course': data['courseName'] ?? 'Unknown course',
           'date': (data['registrationDate'] as Timestamp).toDate(),
+          'status': status,
         });
       }
 
@@ -123,6 +145,34 @@ class _ReportPageState extends State<ReportPage> {
       setState(() => _errorMessage = 'Failed to send email: ${e.toString()}');
     } finally {
       setState(() => _isSending = false);
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+      case 'dismissed':
+        return Colors.red;
+      case 'pending':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+      case 'dismissed':
+        return 'Rejected';
+      case 'pending':
+        return 'Pending';
+      default:
+        return status;
     }
   }
 
@@ -320,6 +370,8 @@ class _ReportPageState extends State<ReportPage> {
 
   Widget _buildRegistrationItem(int index) {
     final reg = _registrations[index];
+    final status = reg['status'] as String? ?? 'pending';
+
     return Card(
       color: const Color(0xFF1E1F2B),
       margin: const EdgeInsets.only(bottom: 12),
@@ -338,9 +390,22 @@ class _ReportPageState extends State<ReportPage> {
           reg['email'] ?? 'No email',
           style: const TextStyle(color: Colors.white),
         ),
-        subtitle: Text(
-          reg['course'] ?? 'Unknown course',
-          style: const TextStyle(color: Colors.white70),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              reg['course'] ?? 'Unknown course',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 4),
+            Chip(
+              label: Text(
+                _getStatusText(status),
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: _getStatusColor(status),
+            ),
+          ],
         ),
         trailing: Text(
           DateFormat.yMMMd().format(reg['date']),
