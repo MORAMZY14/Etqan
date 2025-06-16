@@ -78,47 +78,43 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
               SnackBar(
                 content: const Text('Missing student data - cannot create approval record'),
                 backgroundColor: _warningColor,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ));
-              }
-
-              if (courseName != null && courseName.isNotEmpty &&
-              studentEmail != null && studentEmail.isNotEmpty) {
-            final courseRef = _firestore.collection('Courses').doc(courseName);
-            batch.update(courseRef, {
-              'PendingStudent': FieldValue.arrayRemove([studentEmail]),
-              'signedUsers': FieldValue.arrayUnion([studentEmail]),
-            });
-          } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Missing required fields (courseId or studentEmail)'),
-              backgroundColor: _warningColor,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ));
-        }
+              )
+          );
         }
 
-            await batch.commit();
-        debugPrint('Transaction updated successfully');
+        if (courseName != null && courseName.isNotEmpty &&
+            studentEmail != null && studentEmail.isNotEmpty) {
+          // Update Courses collection
+          final courseRef = _firestore.collection('Courses').doc(courseName);
+          batch.update(courseRef, {
+            'PendingStudent': FieldValue.arrayRemove([studentEmail]),
+            'signedUsers': FieldValue.arrayUnion([studentEmail]),
+          });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Transaction ${newStatus == 'approved' ? 'approved' : 'dismissed'}'),
-            backgroundColor: newStatus == 'approved' ? _successColor : _warningColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      } catch (e, stackTrace) {
+          // NEW: Update Registration Collection
+          final regDocId = '${studentEmail}_$courseName'; // Format: email_courseName
+          final regDocRef = _firestore.collection('Registrations').doc(regDocId);
+          batch.update(regDocRef, {'status': 'approved'});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Missing required fields (courseName or studentEmail)'),
+                backgroundColor: _warningColor,
+              )
+          );
+        }
+      }
+
+      await batch.commit();
+      debugPrint('Transaction and registration updated successfully');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Transaction ${newStatus == 'approved' ? 'approved' : 'dismissed'}'),
+          backgroundColor: newStatus == 'approved' ? _successColor : _warningColor,
+        ),
+      );
+    } catch (e, stackTrace) {
       debugPrint('Error updating payment status: $e');
       debugPrint('Stack trace: $stackTrace');
 
@@ -126,10 +122,6 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         SnackBar(
           content: Text('Failed to update status: ${e.toString()}'),
           backgroundColor: _errorColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
         ),
       );
     }

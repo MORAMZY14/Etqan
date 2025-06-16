@@ -13,7 +13,8 @@ class ReportPage extends StatefulWidget {
 class _ReportPageState extends State<ReportPage> {
   DateTime? _startDate;
   DateTime? _endDate;
-  List<Map<String, dynamic>> _registrations = [];
+  List<Map<String, dynamic>> _allRegistrations = [];
+  List<Map<String, dynamic>> _displayedRegistrations = [];
   bool _isGenerating = false;
   bool _isSending = false;
   String? _errorMessage;
@@ -34,7 +35,8 @@ class _ReportPageState extends State<ReportPage> {
         } else {
           _endDate = picked;
         }
-        _registrations.clear();
+        _allRegistrations.clear();
+        _displayedRegistrations.clear();
         _errorMessage = null;
         _successMessage = null;
       });
@@ -49,13 +51,14 @@ class _ReportPageState extends State<ReportPage> {
 
     setState(() {
       _isGenerating = true;
-      _registrations.clear();
+      _allRegistrations.clear();
+      _displayedRegistrations.clear();
       _errorMessage = null;
       _successMessage = null;
     });
 
     try {
-      // Get all registrations in date range
+      // Get registrations - force server fetch
       final QuerySnapshot regSnapshot = await FirebaseFirestore.instance
           .collection('Registrations')
           .where('registrationDate',
@@ -63,47 +66,67 @@ class _ReportPageState extends State<ReportPage> {
           isLessThanOrEqualTo: Timestamp.fromDate(
             _endDate!.add(const Duration(days: 1)),
           ))
-          .get();
+          .get(const GetOptions(source: Source.server));
 
       if (regSnapshot.docs.isEmpty) {
-        setState(() => _errorMessage = 'No registrations found in the selected date range');
+        setState(() => _errorMessage = 'No registrations found');
         return;
       }
 
-      // Get all transactions for these registrations
+      // Get transactions for these registrations
       final List<String> regIds = regSnapshot.docs.map((doc) => doc.id).toList();
-      final QuerySnapshot transactionSnapshot = await FirebaseFirestore.instance
-          .collection('Transactions')
-          .where('registrationId', whereIn: regIds)
-          .get();
+      final List<DocumentSnapshot> allTransactionDocs = [];
 
-      // Create map of registrationId -> transaction status
-      final Map<String, String> statusMap = {};
-      for (var doc in transactionSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final regId = data['registrationId'] as String? ?? '';
-        final status = data['status'] as String? ?? 'pending';
-        statusMap[regId] = status.toLowerCase();
+      // Process in chunks
+      for (int i = 0; i < regIds.length; i += 10) {
+        final chunk = regIds.sublist(i, i+10 > regIds.length ? regIds.length : i+10);
+        final QuerySnapshot transactionChunk = await FirebaseFirestore.instance
+            .collection('Transactions')
+            .where('registrationId', whereIn: chunk)
+            .get(const GetOptions(source: Source.server));
+        allTransactionDocs.addAll(transactionChunk.docs);
       }
 
-      // Combine registration data with status
+      // Map registrationId -> latest transaction
+      final Map<String, Map<String, dynamic>> latestTransactionMap = {};
+      for (var doc in allTransactionDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final regId = data['registrationId'] as String?;
+        final timestamp = data['createdAt'] as Timestamp?;
+        final status = data['status'] as String?;
+
+        if (regId == null || timestamp == null || status == null) continue;
+
+        if (!latestTransactionMap.containsKey(regId) ||
+            latestTransactionMap[regId]!['createdAt'].seconds < timestamp.seconds) {
+          latestTransactionMap[regId] = {
+            'status': status.toLowerCase(),
+            'createdAt': timestamp,
+          };
+        }
+      }
+
+      // Build registration objects with TRANSACTION STATUS
       final List<Map<String, dynamic>> registrations = [];
       for (var doc in regSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final regId = doc.id;
-        final status = statusMap[regId] ?? 'pending';
+        final transaction = latestTransactionMap[regId];
+        final status = transaction?['status'] ?? 'pending'; // Use transaction status
 
         registrations.add({
           'id': regId,
-          'email': data['userEmail'] ?? 'No email',
-          'course': data['courseName'] ?? 'Unknown course',
+          'email': data['email'] ?? 'No email',
+          'course': data['course'] ?? 'Unknown course',
           'date': (data['registrationDate'] as Timestamp).toDate(),
-          'status': status,
+          'status': data['status'] ?? 'No Data' , // Store transaction status here
+          'transactionTime': transaction?['createdAt']?.toDate(),
         });
       }
 
       setState(() {
-        _registrations = registrations;
+        _allRegistrations = registrations;
+        _displayedRegistrations = registrations;
         _successMessage = 'Found ${registrations.length} registrations';
       });
     } catch (e) {
@@ -119,7 +142,7 @@ class _ReportPageState extends State<ReportPage> {
       return;
     }
 
-    if (_registrations.isEmpty) {
+    if (_allRegistrations.isEmpty) {
       setState(() => _errorMessage = 'No data to send. Please generate report first');
       return;
     }
@@ -132,7 +155,7 @@ class _ReportPageState extends State<ReportPage> {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable(
         'generateRegistrationReport',
-        options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
       );
 
       final result = await callable.call({
@@ -140,7 +163,7 @@ class _ReportPageState extends State<ReportPage> {
         'endDate': _endDate!.toIso8601String(),
       });
 
-      setState(() => _successMessage = result.data['message']);
+      setState(() => _successMessage = result.data['message'] ?? 'Email sent successfully');
     } catch (e) {
       setState(() => _errorMessage = 'Failed to send email: ${e.toString()}');
     } finally {
@@ -176,12 +199,38 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
+  // Calculate counts from FULL report data
+  Map<String, int> _getCounts() {
+    int approved = 0;
+    int pending = 0;
+    int rejected = 0;
+
+    for (var reg in _allRegistrations) {
+      final status = reg['status'] as String? ?? 'pending';
+      if (status == 'approved') approved++;
+      else if (status == 'pending') pending++;
+      else if (status == 'rejected' || status == 'dismissed') rejected++;
+    }
+
+    return {
+      'total': _allRegistrations.length,
+      'approved': approved,
+      'pending': pending,
+      'rejected': rejected,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final counts = _getCounts();
+    final showDashboard = _allRegistrations.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registration Report'),
+        title: const Text('Registration Report Dashboard'),
         backgroundColor: const Color(0xFF1E1F2B),
+        elevation: 5,
+        centerTitle: true,
       ),
       backgroundColor: const Color(0xFF0F111E),
       body: Padding(
@@ -189,80 +238,71 @@ class _ReportPageState extends State<ReportPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Select Date Range',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            // Dashboard Cards (use counts from full report)
+            if (showDashboard) ...[
+              const Text(
+                'Registration Summary',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildDashboardCard('TOTAL', counts['total'].toString(), Colors.blue),
+                  _buildDashboardCard('APPROVED', counts['approved'].toString(), Colors.green),
+                  _buildDashboardCard('PENDING', counts['pending'].toString(), Colors.orange),
+                  _buildDashboardCard('REJECTED', counts['rejected'].toString(), Colors.red),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
 
-            // Date Selection
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDatePicker('Start Date', _startDate, true),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildDatePicker('End Date', _endDate, false),
-                ),
-              ],
-            ),
+            // Date Range Selector
+            _buildDateRangeSelector(),
             const SizedBox(height: 24),
 
             // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildActionButton(
-                  'Generate Report',
-                  Icons.bar_chart,
-                  _isGenerating ? null : _generateReport,
-                  _isGenerating,
-                  const Color(0xFF6C63FF),
-                ),
-                _buildActionButton(
-                  'Send as Email',
-                  Icons.email,
-                  _isSending ? null : _sendEmail,
-                  _isSending,
-                  const Color(0xFF4CAF50),
-                ),
-              ],
-            ),
+            _buildActionButtons(),
             const SizedBox(height: 24),
 
             // Messages
-            if (_errorMessage != null)
-              _buildMessageCard(_errorMessage!, true),
-            if (_successMessage != null)
-              _buildMessageCard(_successMessage!, false),
+            if (_errorMessage != null) _buildMessageCard(_errorMessage!, true),
+            if (_successMessage != null) _buildMessageCard(_successMessage!, false),
 
-            // Results
-            if (_registrations.isNotEmpty)
+            // Results (use displayed registrations)
+            if (_displayedRegistrations.isNotEmpty)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(
-                        'Registrations (${_registrations.length})',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Registrations (${_displayedRegistrations.length})',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.filter_alt, color: Colors.white70),
+                            onPressed: _showFilterOptions,
+                          ),
+                        ],
                       ),
                     ),
                     Expanded(
                       child: ListView.builder(
-                        itemCount: _registrations.length,
+                        itemCount: _displayedRegistrations.length,
                         itemBuilder: (context, index) {
-                          return _buildRegistrationItem(index);
+                          return _buildRegistrationItem(_displayedRegistrations[index], index);
                         },
                       ),
                     ),
@@ -272,6 +312,69 @@ class _ReportPageState extends State<ReportPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDashboardCard(String title, String value, Color color) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color, width: 1),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateRangeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Date Range',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDatePicker('Start Date', _startDate, true),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildDatePicker('End Date', _endDate, false),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -306,6 +409,28 @@ class _ReportPageState extends State<ReportPage> {
               const Icon(Icons.calendar_today, size: 20),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildActionButton(
+          'Generate Report',
+          Icons.bar_chart,
+          _isGenerating ? null : _generateReport,
+          _isGenerating,
+          const Color(0xFF6C63FF),
+        ),
+        _buildActionButton(
+          'Send as Email',
+          Icons.email,
+          _isSending ? null : _sendEmail,
+          _isSending,
+          const Color(0xFF4CAF50),
         ),
       ],
     );
@@ -359,18 +484,27 @@ class _ReportPageState extends State<ReportPage> {
           color: isError ? const Color(0x88FF6B6B) : const Color(0x884CAF50),
         ),
       ),
-      child: Text(
-        message,
-        style: TextStyle(
-          color: isError ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
-        ),
+      child: Row(
+        children: [
+          Icon(isError ? Icons.error : Icons.check_circle,
+              color: isError ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isError ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRegistrationItem(int index) {
-    final reg = _registrations[index];
+  Widget _buildRegistrationItem(Map<String, dynamic> reg, int index) {
     final status = reg['status'] as String? ?? 'pending';
+    final transactionTime = reg['transactionTime'] as DateTime?;
 
     return Card(
       color: const Color(0xFF1E1F2B),
@@ -398,12 +532,27 @@ class _ReportPageState extends State<ReportPage> {
               style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 4),
-            Chip(
-              label: Text(
-                _getStatusText(status),
-                style: const TextStyle(color: Colors.white),
-              ),
-              backgroundColor: _getStatusColor(status),
+            Row(
+              children: [
+                Chip(
+                  label: Text(
+                    _getStatusText(status),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  backgroundColor: _getStatusColor(status),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                ),
+                if (transactionTime != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    DateFormat('MMM dd').format(transactionTime),
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                    ),
+                  ),
+                ]
+              ],
             ),
           ],
         ),
@@ -413,6 +562,71 @@ class _ReportPageState extends State<ReportPage> {
         ),
       ),
     );
+  }
+
+  void _showFilterOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1F2B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Filter Registrations',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildFilterOption('All', Icons.all_inclusive, () => _filterRegistrations(null)),
+              _buildFilterOption('Approved', Icons.check_circle, () => _filterRegistrations('approved')),
+              _buildFilterOption('Pending', Icons.access_time, () => _filterRegistrations('pending')),
+              _buildFilterOption('Rejected', Icons.cancel, () => _filterRegistrations('rejected')),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterOption(String text, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white70),
+      title: Text(
+        text,
+        style: const TextStyle(color: Colors.white),
+      ),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  void _filterRegistrations(String? status) {
+    if (status == null) {
+      // Reset to all registrations
+      setState(() {
+        _displayedRegistrations = List.from(_allRegistrations);
+      });
+      return;
+    }
+
+    // Filter registrations by status
+    setState(() {
+      _displayedRegistrations = _allRegistrations
+          .where((reg) => (reg['status'] as String? ?? '') == status)
+          .toList();
+    });
   }
 
   Color _getColorForIndex(int index) {

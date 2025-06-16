@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -22,53 +23,108 @@ class _WishlistPageState extends State<WishlistPage> {
   final Set<String> _selectedCourses = <String>{};
   Uint8List? _paymentScreenshotBytes;
   String _paymentLink = '';
+  bool _isLoading = false;
+  Timer? _loadingTimer;
+  bool _dialogShown = false;
 
   @override
   void initState() {
     super.initState();
+    _isLoading = true;
     _coursesFuture = _fetchCourses();
     _fetchPaymentLink();
+
+    // Set timeout for loading dialog
+    _loadingTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+        if (_dialogShown) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    });
+
+    // Show loading dialog after frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isLoading) {
+        _showLoadingDialog();
+      }
+    });
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading courses...'),
+          ],
+        ),
+      ),
+    ).then((_) => _dialogShown = false);
+    _dialogShown = true;
+  }
+
+  @override
+  void dispose() {
+    _loadingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchPaymentLink() async {
     final doc = await _firestore.collection('Settings').doc('Payment').get();
-    setState(() {
-      _paymentLink = doc.data()?['link'] ?? '';
-    });
+    if (mounted) {
+      setState(() {
+        _paymentLink = doc.data()?['link'] ?? '';
+      });
+    }
   }
 
   Future<List<Map<String, dynamic>>> _fetchCourses() async {
-    final user = _auth.currentUser;
-    if (user == null) return [];
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return [];
 
-    final userEmail = user.email!;
+      final userEmail = user.email!;
+      final studentDoc = await _firestore.collection('Students').doc(userEmail).get();
+      final List<dynamic> registeredCourses = studentDoc.data()?['registeredCourses'] ?? [];
 
-    // Fetch student's registered courses
-    final studentDoc = await _firestore.collection('Students').doc(userEmail).get();
-    final List<dynamic> registeredCourses = studentDoc.data()?['registeredCourses'] ?? [];
+      final snapshot = await _firestore.collection('Courses').get();
+      final List<Map<String, dynamic>> result = [];
 
-    final snapshot = await _firestore.collection('Courses').get();
-    final List<Map<String, dynamic>> result = [];
+      for (final doc in snapshot.docs) {
+        final courseName = doc.data()['name'] ?? 'Unknown Course';
+        if (registeredCourses.contains(courseName)) continue;
 
-    for (final doc in snapshot.docs) {
-      final courseName = doc.data()['name'] ?? 'Unknown Course';
+        final imageUrl = await _getCourseImageUrl(courseName);
+        final coursePrice = doc.data()?['price'] ?? 0;
 
-      // Skip if user has already registered for this course
-      if (registeredCourses.contains(courseName)) {
-        continue;
+        result.add({
+          'name': courseName,
+          'imageUrl': imageUrl,
+          'price': coursePrice,
+        });
       }
 
-      final imageUrl = await _getCourseImageUrl(courseName);
-      final coursePrice = doc.data()?['price'] ?? 0;
-
-      result.add({
-        'name': courseName,
-        'imageUrl': imageUrl,
-        'price': coursePrice,
-      });
+      // Close loading if data arrives before timeout
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+        if (_dialogShown) Navigator.of(context, rootNavigator: true).pop();
+      }
+      return result;
+    } catch (e) {
+      // Close loading on error
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+        if (_dialogShown) Navigator.of(context, rootNavigator: true).pop();
+      }
+      rethrow;
     }
-
-    return result;
   }
 
   Future<String> _getCourseImageUrl(String courseName) async {
@@ -302,28 +358,30 @@ class _WishlistPageState extends State<WishlistPage> {
       final batch = _firestore.batch();
       final studentRef = _firestore.collection('Students').doc(userEmail);
 
-      // ===== CREATE REGISTRATION DOCUMENT =====
-      final registrationId = 'reg_${userEmail}_${registrationDate.millisecondsSinceEpoch}';
-      final registrationRef = _firestore.collection('Registrations').doc(registrationId);
-
-      batch.set(registrationRef, {
-        'studentEmail': userEmail,
-        'studentName': studentName,
-        'studentID': studentID,
-        'courses': _selectedCourses.toList(),
-        'registrationDate': registrationDate,
-        'paymentScreenshot': downloadUrl,
-        'status': 'pending',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      // =======================================
-
       // Add selected courses to student's registeredCourses
       batch.update(studentRef, {
         'registeredCourses': FieldValue.arrayUnion(_selectedCourses.toList())
       });
 
       for (final courseName in _selectedCourses) {
+        // Create unique document ID: email + course name
+        final registrationId = '${userEmail}_$courseName';
+
+        // ===== CREATE REGISTRATION DOCUMENT =====
+        final registrationRef = _firestore.collection('Registrations').doc(registrationId);
+
+        batch.set(registrationRef, {
+          'email': userEmail,
+          'studentName': studentName,
+          'studentID': studentID,
+          'course': courseName,
+          'registrationDate': registrationDate,
+          'paymentScreenshot': downloadUrl,
+          'status': 'pending',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        // =======================================
+
         // Get course reference
         final courseRef = _firestore.collection('Courses').doc(courseName);
         final courseDoc = await courseRef.get();
@@ -365,14 +423,17 @@ class _WishlistPageState extends State<WishlistPage> {
 
       await batch.commit();
 
-      // Trigger email function
-      await _firestore.collection('email_triggers').add({
-        'studentEmail': userEmail,
-        'studentName': studentName,
-        'triggerTime': DateTime.now().toIso8601String(),
-        'status': 'pending',
-        'registrationId': registrationId,
-      });
+      // Trigger email function - one per course
+      for (final courseName in _selectedCourses) {
+        final registrationId = '${userEmail}_$courseName';
+        await _firestore.collection('email_triggers').add({
+          'studentEmail': userEmail,
+          'studentName': studentName,
+          'triggerTime': DateTime.now().toIso8601String(),
+          'status': 'pending',
+          'registrationId': registrationId,
+        });
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -394,6 +455,7 @@ class _WishlistPageState extends State<WishlistPage> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -403,7 +465,9 @@ class _WishlistPageState extends State<WishlistPage> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: _isLoading
+          ? Container() // Empty while dialog shows
+          : FutureBuilder<List<Map<String, dynamic>>>(
         future: _coursesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
