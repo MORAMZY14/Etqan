@@ -161,6 +161,7 @@ class _UserPageState extends State<UserPage> {
         return CustomListItem(
           name: doc['name']?.toString() ?? 'Unnamed Course',
           content: doc['content']?.toString() ?? '',
+          id: doc.id, // Use doc.id to get the document ID
         );
       }).toList();
 
@@ -173,6 +174,7 @@ class _UserPageState extends State<UserPage> {
           return CustomListItem(
             name: doc['name']?.toString() ?? 'Unnamed Course',
             content: doc['content']?.toString() ?? '',
+            id: doc.id, // Use doc.id to get the document ID
           );
         }).toList();
         setState(() => _items = fallbackCourses);
@@ -240,7 +242,7 @@ class _UserPageState extends State<UserPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          builder: (context) {  // Fixed: Added proper builder function
+          builder: (context) {
             return Container(
               padding: EdgeInsets.all(24),
               child: Column(
@@ -391,9 +393,8 @@ class _UserPageState extends State<UserPage> {
             delegate: SliverChildBuilderDelegate(
                   (context, index) {
                 final course = _items[index];
-                final image = _courseImages[course.name] ??
-                    'https://via.placeholder.com/150';
-                return _buildCourseCard(course.name, image);
+                final image = _courseImages[course.name] ?? 'https://via.placeholder.com/150';
+                return _buildCourseCard(course.name, image, course.id); // Add course ID
               },
               childCount: _items.length,
             ),
@@ -433,7 +434,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildCourseCard(String title, String imageUrl) {
+  Widget _buildCourseCard(String title, String imageUrl, String courseId) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -441,7 +442,7 @@ class _UserPageState extends State<UserPage> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => _navigateToCourseDetail(title, imageUrl),
+        onTap: () => _navigateToCourseDetail(title, imageUrl, courseId),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -793,16 +794,14 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  void _navigateToCourseDetail(String title, String image) {
+  void _navigateToCourseDetail(String title, String image, String courseId) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CourseDetailedPage(
           courseName: title,
-          courseImage: image,
-          courseDescription: '',
-          imageUrl: '',
-          courseImageUrl: '',
+          courseImageUrl: image,
+          courseId: courseId,
         ),
       ),
     );
@@ -846,9 +845,11 @@ class _UserPageState extends State<UserPage> {
 class CustomListItem {
   final String name;
   final String content;
+  final String id; // Add the id property
 
   CustomListItem({
     required this.name,
     required this.content,
+    required this.id, // Add id to the constructor
   });
 }

@@ -19,6 +19,9 @@ class _ReportPageState extends State<ReportPage> {
   bool _isSending = false;
   String? _errorMessage;
   String? _successMessage;
+  String _searchQuery = '';
+  String? _currentStatusFilter;
+  bool _hasGeneratedReport = false;
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final picked = await showDatePicker(
@@ -37,6 +40,7 @@ class _ReportPageState extends State<ReportPage> {
         }
         _allRegistrations.clear();
         _displayedRegistrations.clear();
+        _hasGeneratedReport = false;
         _errorMessage = null;
         _successMessage = null;
       });
@@ -55,6 +59,7 @@ class _ReportPageState extends State<ReportPage> {
       _displayedRegistrations.clear();
       _errorMessage = null;
       _successMessage = null;
+      _hasGeneratedReport = false;
     });
 
     try {
@@ -69,7 +74,10 @@ class _ReportPageState extends State<ReportPage> {
           .get(const GetOptions(source: Source.server));
 
       if (regSnapshot.docs.isEmpty) {
-        setState(() => _errorMessage = 'No registrations found');
+        setState(() {
+          _errorMessage = 'No registrations found';
+          _hasGeneratedReport = true;
+        });
         return;
       }
 
@@ -117,9 +125,10 @@ class _ReportPageState extends State<ReportPage> {
         registrations.add({
           'id': regId,
           'email': data['email'] ?? 'No email',
+          'name': data['studentName'] ?? 'Unknown', // Add student name
           'course': data['course'] ?? 'Unknown course',
           'date': (data['registrationDate'] as Timestamp).toDate(),
-          'status': data['status'] ?? 'No Data' , // Store transaction status here
+          'status': data['status'] ?? 'No Data', // Store transaction status here
           'transactionTime': transaction?['createdAt']?.toDate(),
         });
       }
@@ -128,12 +137,41 @@ class _ReportPageState extends State<ReportPage> {
         _allRegistrations = registrations;
         _displayedRegistrations = registrations;
         _successMessage = 'Found ${registrations.length} registrations';
+        _hasGeneratedReport = true;
       });
     } catch (e) {
       setState(() => _errorMessage = 'Error fetching data: ${e.toString()}');
     } finally {
       setState(() => _isGenerating = false);
     }
+  }
+
+  // Apply filters based on status and search query
+  void _applyFilters() {
+    setState(() {
+      _displayedRegistrations = _allRegistrations.where((reg) {
+        // Apply status filter
+        final statusMatch = _currentStatusFilter == null ||
+            (reg['status'] as String? ?? '').toLowerCase() == _currentStatusFilter;
+
+        // Apply search filter
+        final email = reg['email']?.toString().toLowerCase() ?? '';
+        final name = reg['name']?.toString().toLowerCase() ?? '';
+        final searchMatch = _searchQuery.isEmpty ||
+            email.contains(_searchQuery) ||
+            name.contains(_searchQuery);
+
+        return statusMatch && searchMatch;
+      }).toList();
+    });
+  }
+
+  // Handle search query changes
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query.trim().toLowerCase();
+      _applyFilters();
+    });
   }
 
   Future<void> _sendEmail() async {
@@ -272,8 +310,8 @@ class _ReportPageState extends State<ReportPage> {
             if (_errorMessage != null) _buildMessageCard(_errorMessage!, true),
             if (_successMessage != null) _buildMessageCard(_successMessage!, false),
 
-            // Results (use displayed registrations)
-            if (_displayedRegistrations.isNotEmpty)
+            // Results section - always show after generating report
+            if (_hasGeneratedReport)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,8 +336,39 @@ class _ReportPageState extends State<ReportPage> {
                         ],
                       ),
                     ),
+                    // Search Bar - always visible
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: TextField(
+                        onChanged: _onSearchChanged,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Search by email or name...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                          filled: true,
+                          fillColor: const Color(0xFF1E1F2B),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        ),
+                      ),
+                    ),
+                    // Results list or "no results" message
                     Expanded(
-                      child: ListView.builder(
+                      child: _displayedRegistrations.isEmpty
+                          ? const Center(
+                        child: Text(
+                          'No registrations found',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 18,
+                          ),
+                        ),
+                      )
+                          : ListView.builder(
                         itemCount: _displayedRegistrations.length,
                         itemBuilder: (context, index) {
                           return _buildRegistrationItem(_displayedRegistrations[index], index);
@@ -521,12 +590,17 @@ class _ReportPageState extends State<ReportPage> {
           ),
         ),
         title: Text(
-          reg['email'] ?? 'No email',
+          reg['name'] ?? 'Unknown name', // Show student name
           style: const TextStyle(color: Colors.white),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              reg['email'] ?? 'No email',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 4),
             Text(
               reg['course'] ?? 'Unknown course',
               style: const TextStyle(color: Colors.white70),
@@ -613,19 +687,9 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   void _filterRegistrations(String? status) {
-    if (status == null) {
-      // Reset to all registrations
-      setState(() {
-        _displayedRegistrations = List.from(_allRegistrations);
-      });
-      return;
-    }
-
-    // Filter registrations by status
     setState(() {
-      _displayedRegistrations = _allRegistrations
-          .where((reg) => (reg['status'] as String? ?? '') == status)
-          .toList();
+      _currentStatusFilter = status?.toLowerCase();
+      _applyFilters();
     });
   }
 
