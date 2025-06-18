@@ -51,10 +51,34 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  ThemeMode _themeMode = ThemeMode.light; // Default to light mode
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadThemeMode();
+    _updateSystemUIOverlayStyle();
+  }
+
+  // Load saved theme mode from preferences
+  Future<void> _loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedMode = prefs.getString('themeMode');
+    setState(() {
+      if (savedMode == 'dark') {
+        _themeMode = ThemeMode.dark;
+      } else {
+        _themeMode = ThemeMode.light;
+      }
+    });
+  }
+
+  // Change theme mode and save preference
+  void _changeThemeMode(ThemeMode mode) async {
+    setState(() => _themeMode = mode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('themeMode', mode == ThemeMode.dark ? 'dark' : 'light');
     _updateSystemUIOverlayStyle();
   }
 
@@ -70,7 +94,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _updateSystemUIOverlayStyle() {
-    final brightness = WidgetsBinding.instance.window.platformBrightness;
+    final brightness = _themeMode == ThemeMode.dark
+        ? Brightness.dark
+        : Brightness.light;
+
     SystemChrome.setSystemUIOverlayStyle(
       brightness == Brightness.dark
           ? SystemUiOverlayStyle.light
@@ -84,7 +111,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      themeMode: _themeMode, // Use managed theme mode
       home: widget.homePage,
     );
   }
@@ -246,7 +273,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).colorScheme.primary,
-                            // FIX: Ensure text is visible
                             foregroundColor: Theme.of(context).colorScheme.onPrimary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -322,7 +348,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  // FIXED NAVIGATION: Using MaterialPageRoute for proper swipe-back support
   void _navigateToPage(Widget page, String routeName) {
     _animationController.forward().then((_) {
       Navigator.push(
@@ -339,6 +364,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final screenHeight = MediaQuery.of(context).size.height;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Container(
@@ -356,26 +382,46 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // Header with theme toggle
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Row(
                   children: [
-                    Text(
-                      'Welcome, Guest',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, Guest',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Explore the application features',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Explore the application features',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                    // Dark Mode Toggle Button
+                    IconButton(
+                      icon: Icon(
+                        isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: colorScheme.primary,
                       ),
+                      onPressed: () {
+                        final appState = context.findAncestorStateOfType<_MyAppState>();
+                        if (appState != null) {
+                          final newMode = isDarkMode ? ThemeMode.light : ThemeMode.dark;
+                          appState._changeThemeMode(newMode);
+                        }
+                      },
+                      tooltip: isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
                     ),
                   ],
                 ),

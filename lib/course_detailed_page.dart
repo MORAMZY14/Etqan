@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'wishlist_page.dart'; // Make sure this import points to your WishlistPage file
 
 class CourseDetailedPage extends StatefulWidget {
   final String courseName;
   final String courseImageUrl;
-  final String courseId; // Added to fetch course details
+  final String courseId;
 
   const CourseDetailedPage({
     super.key,
@@ -28,7 +29,6 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
   }
 
   Future<Map<String, dynamic>> _fetchCourseData() async {
-    // Fetch course details
     final courseDoc = await FirebaseFirestore.instance
         .collection('Courses')
         .doc(widget.courseId)
@@ -42,7 +42,6 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
     final description = courseData['description'] ?? 'No description available';
     final instructorEmail = courseData['instructor'] ?? '';
 
-    // Fetch instructor name
     if (instructorEmail.isNotEmpty) {
       final instructorDoc = await FirebaseFirestore.instance
           .collection('Admins')
@@ -103,31 +102,7 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
                               onPressed: () => Navigator.pop(context),
                             ),
                             const Spacer(),
-                            IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withOpacity(0.4),
-                                ),
-                                child: const Icon(Icons.share, color: Colors.white),
-                              ),
-                              onPressed: () {},
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withOpacity(0.4),
-                                ),
-                                child: const Icon(Icons.favorite_border, color: Colors.white),
-                              ),
-                              onPressed: () {
-                                Navigator.pushNamed(context, '/wishlistpage');
-                              },
-                            ),
+                            // Wishlist and Share buttons completely removed
                           ],
                         ),
                       ),
@@ -240,13 +215,17 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
         },
       ),
 
-      // Enroll button
+      // Enroll button - Now navigates to WishlistPage directly
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
             onPressed: () {
-              Navigator.pushNamed(context, '/wishlistpage');
+              // Navigate directly to WishlistPage using MaterialPageRoute
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => WishlistPage()),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
@@ -266,7 +245,6 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
     );
   }
 
-  // Learning item widget
   Widget _buildLearnItem(String text, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -288,7 +266,6 @@ class _CourseDetailedPageState extends State<CourseDetailedPage> {
     );
   }
 
-  // Instructor card widget
   Widget _buildInstructorCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),

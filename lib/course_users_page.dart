@@ -17,87 +17,238 @@ class CourseUsersPage extends StatelessWidget {
     final Color primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('$courseName Users',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                primaryColor,
-                Color.lerp(primaryColor, Colors.blue, 0.7)!,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+      extendBodyBehindAppBar: true,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0A0E21),
+              Color(0xFF1D1E33),
+            ],
           ),
         ),
-      ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('Courses')
-            .doc(courseId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingList();
-          }
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 180,
+              collapsedHeight: 80,
+              pinned: true,
+              stretch: true,
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  '$courseName Users',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    shadows: [
+                    Shadow(
+                    color: Colors.black45,
+                    blurRadius: 6,
+                    offset: Offset(1, 1),
+                    )],
+                  ),
+                ),
+                centerTitle: true,
+                background: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        primaryColor.withOpacity(0.8),
+                        Color.lerp(primaryColor, Colors.blue, 0.7)!,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
+                child: Text(
+                  'Enrolled Participants',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('Courses')
+                    .doc(courseId)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingList();
+                  }
 
-          if (!snapshot.hasData ||
-              snapshot.data == null ||
-              snapshot.data!['ApprovedUsers'] == null) {
-            return _buildEmptyState();
-          }
+                  if (snapshot.hasError) {
+                    return SliverToBoxAdapter(
+                      child: _buildErrorState(snapshot.error.toString()),
+                    );
+                  }
 
-          final List<String> signedUserIds =
-          List<String>.from(snapshot.data!['ApprovedUsers']);
+                  if (!snapshot.hasData ||
+                      !snapshot.data!.exists ||
+                      snapshot.data!['ApprovedUsers'] == null) {
+                    return SliverToBoxAdapter(
+                      child: _buildEmptyState(),
+                    );
+                  }
 
-          if (signedUserIds.isEmpty) {
-            return _buildEmptyState();
-          }
+                  final List<dynamic> signedUsers = snapshot.data!['ApprovedUsers'];
+                  final List<String> signedUserIds = signedUsers.map((id) => id.toString()).toList();
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: signedUserIds.length,
-            separatorBuilder: (context, index) => SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final userId = signedUserIds[index];
-              return _UserCard(
-                userId: userId,
-                courseId: courseId,
-                onDelete: () => _confirmDeleteUser(context, userId),
-              );
-            },
-          );
-        },
+                  if (signedUserIds.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: _buildEmptyState(),
+                    );
+                  }
+
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                        final userId = signedUserIds[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _ModernUserCard(
+                            userId: userId,
+                            courseId: courseId,
+                            onDelete: () => _confirmDeleteUser(context, userId),
+                          ),
+                        );
+                      },
+                      childCount: signedUserIds.length,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildLoadingList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: 8,
-      itemBuilder: (context, index) {
-        return _PlaceholderCard();
-      },
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: _ModernPlaceholderCard(),
+          );
+        },
+        childCount: 5,
+      ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.group_off, size: 64, color: Colors.grey[400]),
-          SizedBox(height: 20),
-          Text('No Enrolled Users',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-          SizedBox(height: 10),
-          Text('Users will appear here once they enroll',
-              style: TextStyle(color: Colors.grey)),
+          Icon(Icons.group_add, size: 64, color: Colors.blueGrey[300]),
+          const SizedBox(height: 24),
+          Text(
+            'No Enrolled Users Yet',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Users will appear here once they enroll in this course',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.blueGrey[200],
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent.withOpacity(0.8),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Invite Users',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 24),
+          const Text(
+            'Error Loading Data',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.red,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.withOpacity(0.7),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Retry',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -106,47 +257,94 @@ class CourseUsersPage extends StatelessWidget {
   Future<void> _confirmDeleteUser(BuildContext context, String userId) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 10),
-            Text('Remove User?'),
-          ],
-        ),
-        content: Text('This will remove the user from the course. Continue?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1D1E33),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  size: 48,
+                  color: Colors.orange),
+              const SizedBox(height: 16),
+              const Text(
+                'Remove User?',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            child: Text('Remove'),
+              const SizedBox(height: 16),
+              const Text(
+                'This will remove the user from the course. Continue?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Remove',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 
     if (shouldDelete == true) {
       await _deleteUser(userId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('User removed from course'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('User removed from course'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -157,24 +355,33 @@ class CourseUsersPage extends StatelessWidget {
     try {
       // Get user document
       final userSnapshot = await userDoc.get();
+      if (!userSnapshot.exists) return;
+
       final List<dynamic> registeredCourses =
       List<dynamic>.from(userSnapshot.data()?['RegisteredCourses'] ?? []);
 
-      // Find and remove the course from the user's RegisteredCourses
-      registeredCourses.removeWhere((course) {
-        return course is Map<String, dynamic> && course['courseName'] == courseId;
-      });
+      // Fixed removal logic - remove by courseId
+      final updatedCourses = registeredCourses.where((course) {
+        if (course is String) {
+          return course != courseId;
+        } else if (course is Map<String, dynamic>) {
+          return course['courseId'] != courseId && course['id'] != courseId;
+        }
+        return true;
+      }).toList();
 
-      await userDoc.update({'RegisteredCourses': registeredCourses});
+      await userDoc.update({'RegisteredCourses': updatedCourses});
 
-      // Update course document to remove the user from signedUsers
+      // Update course document
       final courseSnapshot = await courseDoc.get();
-      final List<dynamic> courseUsers =
-      List<String>.from(courseSnapshot.data()?['ApprovedUsers'] ?? []);
+      if (!courseSnapshot.exists) return;
 
-      if (courseUsers.contains(userId)) {
-        courseUsers.remove(userId);
-        await courseDoc.update({'ApprovedUsers': courseUsers});
+      final List<dynamic> approvedUsers =
+      List<dynamic>.from(courseSnapshot.data()?['ApprovedUsers'] ?? []);
+
+      if (approvedUsers.contains(userId)) {
+        final updatedUsers = List<dynamic>.from(approvedUsers)..remove(userId);
+        await courseDoc.update({'ApprovedUsers': updatedUsers});
       }
     } catch (e) {
       print('Error deleting user: $e');
@@ -182,12 +389,12 @@ class CourseUsersPage extends StatelessWidget {
   }
 }
 
-class _UserCard extends StatelessWidget {
+class _ModernUserCard extends StatelessWidget {
   final String userId;
   final String courseId;
   final VoidCallback onDelete;
 
-  const _UserCard({
+  const _ModernUserCard({
     required this.userId,
     required this.courseId,
     required this.onDelete,
@@ -199,17 +406,20 @@ class _UserCard extends StatelessWidget {
       future: FirebaseFirestore.instance.collection('Users').doc(userId).get(),
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingCard();
+          return const _ModernPlaceholderCard();
         }
 
-        if (!userSnapshot.hasData || userSnapshot.data == null) {
-          return _buildErrorCard(context);
+        // Handle errors and non-existent documents
+        if (userSnapshot.hasError ||
+            !userSnapshot.hasData ||
+            !userSnapshot.data!.exists) {
+          return _buildErrorCard(context, userId);
         }
 
         final userData = userSnapshot.data!;
-        final userName = userData['name'] ?? 'No Name';
-        final userEmail = userData['email'] ?? 'No Email';
-        final userAvatar = userData['avatarUrl'] ?? '';
+        final userName = userData['name'] as String? ?? 'Deleted User';
+        final userEmail = userData['email'] as String? ?? 'Account no longer exists';
+        final userAvatar = userData['avatarUrl'] as String? ?? '';
 
         return InkWell(
           onTap: () {
@@ -220,86 +430,116 @@ class _UserCard extends StatelessWidget {
               ),
             );
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF242538),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
                 ),
               ],
+              border: Border.all(
+                color: Colors.blueAccent.withOpacity(0.2),
+                width: 1,
+              ),
             ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                if (userAvatar.isNotEmpty)
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundImage: NetworkImage(userAvatar),
-                  )
-                else
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          Theme.of(context).colorScheme.primary,
-                          Theme.of(context).colorScheme.secondary,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Avatar with error state
+                  if (userAvatar.isNotEmpty)
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.blueAccent.withOpacity(0.5),
+                          width: 2,
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(userAvatar),
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        userName[0].toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                    )
+                  else
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blueAccent.withOpacity(0.7),
+                            Colors.deepPurple.withOpacity(0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(
+                          color: Colors.blueAccent.withOpacity(0.5),
+                          width: 2,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          userName == 'Deleted User'
+                              ? Icons.person_off
+                              : Icons.person,
                           color: Colors.white,
+                          size: 28,
                         ),
                       ),
                     ),
-                  ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userName,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: userName == 'Deleted User'
+                                ? Colors.grey
+                                : Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        userEmail,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).textTheme.bodySmall!.color,
+                        const SizedBox(height: 6),
+                        Text(
+                          userEmail,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: userName == 'Deleted User'
+                                ? Colors.grey
+                                : Colors.blueGrey[200],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: Colors.red[400]),
-                  onPressed: onDelete,
-                  tooltip: 'Remove user',
-                ),
-              ],
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: Colors.red[300],
+                      size: 28,
+                    ),
+                    onPressed: onDelete,
+                    tooltip: 'Remove user',
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -307,84 +547,140 @@ class _UserCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadingCard() {
-    return _PlaceholderCard();
-  }
-
-  Widget _buildErrorCard(BuildContext context) {
+  Widget _buildErrorCard(BuildContext context, String userId) {
     return Container(
-      height: 80,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // Now uses valid context
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF242538),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.red.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey[200],
+              color: Colors.red.withOpacity(0.2),
+              border: Border.all(
+                color: Colors.red.withOpacity(0.4),
+                width: 2,
+              ),
             ),
-            child: Icon(Icons.error_outline, color: Colors.red),
+            child: const Center(
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 28,
+              ),
+            ),
           ),
-          SizedBox(width: 16),
-          Text('Failed to load user',
-              style: TextStyle(color: Colors.red)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'User not found',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'ID: $userId',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blueGrey[200],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              color: Colors.red[300],
+              size: 28,
+            ),
+            onPressed: onDelete,
+            tooltip: 'Remove user',
+          ),
         ],
       ),
     );
   }
 }
 
+class _ModernPlaceholderCard extends StatelessWidget {
+  const _ModernPlaceholderCard();
 
-class _PlaceholderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
-      margin: const EdgeInsets.only(bottom: 12),
+      height: 92,
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF242538),
+        borderRadius: BorderRadius.circular(20),
       ),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
-            margin: EdgeInsets.only(left: 16),
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey[300],
+              color: Colors.grey[700],
             ),
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  height: 16,
+                  height: 20,
                   width: 120,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: Colors.grey[700],
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Container(
-                  height: 12,
+                  height: 16,
                   width: 180,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: Colors.grey[700],
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ],
+            ),
+          ),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              shape: BoxShape.circle,
             ),
           ),
         ],

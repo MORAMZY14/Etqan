@@ -264,8 +264,6 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
           _buildCategoryGrid(),
           const SizedBox(height: 24),
           _buildTrendingCoursesSection(),
-          const SizedBox(height: 24),
-          _buildRecentActivity(),
           const SizedBox(height: 80),
         ],
       ),
@@ -614,63 +612,6 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildRecentActivity() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Recent Activity',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1F2B),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                _buildActivityItem(
-                  Icons.person_add,
-                  'New student registration',
-                  'Sarah Johnson registered for "Advanced Flutter"',
-                  '2 min ago',
-                  Colors.blue,
-                ),
-                _buildActivityItem(
-                  Icons.check_circle,
-                  'Course approved',
-                  '"UI/UX Design Fundamentals" approved by Dr. Ahmed',
-                  '30 min ago',
-                  Colors.green,
-                ),
-                _buildActivityItem(
-                  Icons.notifications,
-                  'Announcement posted',
-                  'New announcement: Mid-term exam schedule',
-                  '1 hour ago',
-                  Colors.orange,
-                ),
-                _buildActivityItem(
-                  Icons.payment,
-                  'Payment received',
-                  'Payment of \$120 received from Mohamed Ali',
-                  '3 hours ago',
-                  Colors.purple,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildActivityItem(IconData icon, String title, String description, String time, Color color) {
     return Padding(

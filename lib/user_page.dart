@@ -39,12 +39,12 @@ class _UserPageState extends State<UserPage> {
 
   int _selectedIndex = 0;
   final List<BottomNavigationBarItem> _navItems = [
-    BottomNavigationBarItem(
+    const BottomNavigationBarItem(
       icon: Icon(Icons.home_outlined),
       activeIcon: Icon(Icons.home),
       label: 'Home',
     ),
-    BottomNavigationBarItem(
+    const BottomNavigationBarItem(
       icon: Icon(Icons.person_outline),
       activeIcon: Icon(Icons.person),
       label: 'Profile',
@@ -123,7 +123,7 @@ class _UserPageState extends State<UserPage> {
   Future<void> _updateUserProfile() async {
     if (_nameController.text.isEmpty || _idController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Name and ID cannot be empty')),
+        const SnackBar(content: Text('Name and ID cannot be empty')),
       );
       return;
     }
@@ -142,12 +142,12 @@ class _UserPageState extends State<UserPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile updated successfully')),
+        const SnackBar(content: Text('Profile updated successfully')),
       );
     } catch (e) {
       print('Error updating profile: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile')),
+        const SnackBar(content: Text('Failed to update profile')),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -161,7 +161,7 @@ class _UserPageState extends State<UserPage> {
         return CustomListItem(
           name: doc['name']?.toString() ?? 'Unnamed Course',
           content: doc['content']?.toString() ?? '',
-          id: doc.id, // Use doc.id to get the document ID
+          id: doc.id,
         );
       }).toList();
 
@@ -174,7 +174,7 @@ class _UserPageState extends State<UserPage> {
           return CustomListItem(
             name: doc['name']?.toString() ?? 'Unnamed Course',
             content: doc['content']?.toString() ?? '',
-            id: doc.id, // Use doc.id to get the document ID
+            id: doc.id,
           );
         }).toList();
         setState(() => _items = fallbackCourses);
@@ -211,7 +211,7 @@ class _UserPageState extends State<UserPage> {
     await prefs.clear();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
+      MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 
@@ -239,12 +239,12 @@ class _UserPageState extends State<UserPage> {
       onPressed: () {
         showModalBottomSheet(
           context: context,
-          shape: RoundedRectangleBorder(
+          shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           builder: (context) {
             return Container(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -253,7 +253,7 @@ class _UserPageState extends State<UserPage> {
                       fontWeight: FontWeight.w600,
                       color: Colors.blue[800]
                   )),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   _buildActionButton(
                       icon: Icons.checklist_rounded,
                       label: 'Select Courses',
@@ -261,7 +261,7 @@ class _UserPageState extends State<UserPage> {
                       onPressed: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => WishlistPage()));
+                            builder: (_) => const WishlistPage()));
                       }
                   ),
                   _buildActionButton(
@@ -280,17 +280,17 @@ class _UserPageState extends State<UserPage> {
                       onPressed: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => RegisteredCoursesPage()));
+                            builder: (_) => const RegisteredCoursesPage()));
                       }
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                 ],
               ),
             );
           },
         );
       },
-      child: Icon(Icons.menu, color: Colors.white),
+      child: const Icon(Icons.menu, color: Colors.white),
     );
   }
 
@@ -302,7 +302,7 @@ class _UserPageState extends State<UserPage> {
   }) {
     return ListTile(
       leading: Container(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           shape: BoxShape.circle,
@@ -311,9 +311,10 @@ class _UserPageState extends State<UserPage> {
       ),
       title: Text(label, style: GoogleFonts.poppins(
           fontWeight: FontWeight.w500,
-          fontSize: 16
+          fontSize: 16,
+          color: Colors.grey[800]
       )),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onPressed,
     );
   }
@@ -345,14 +346,14 @@ class _UserPageState extends State<UserPage> {
           ),
           actions: [
             IconButton(
-              icon: Icon(Icons.search, color: Colors.white),
+              icon: const Icon(Icons.search, color: Colors.white),
               onPressed: () {},
             ),
           ],
         ),
 
         SliverPadding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,29 +363,29 @@ class _UserPageState extends State<UserPage> {
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800]
                 )),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text('Find your next course', style: GoogleFonts.poppins(
                     color: Colors.grey[600]
                 )),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ),
 
         SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(
             child: _buildCategoryFilter(),
           ),
         ),
 
         SliverPadding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           sliver: _items.isEmpty
               ? SliverToBoxAdapter(child: _buildEmptyState())
               : SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
@@ -394,7 +395,7 @@ class _UserPageState extends State<UserPage> {
                   (context, index) {
                 final course = _items[index];
                 final image = _courseImages[course.name] ?? 'https://via.placeholder.com/150';
-                return _buildCourseCard(course.name, image, course.id); // Add course ID
+                return _buildCourseCard(course.name, image, course.id);
               },
               childCount: _items.length,
             ),
@@ -411,7 +412,7 @@ class _UserPageState extends State<UserPage> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        separatorBuilder: (_, __) => SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = category == 'All';
@@ -448,7 +449,7 @@ class _UserPageState extends State<UserPage> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 child: Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
@@ -460,7 +461,7 @@ class _UserPageState extends State<UserPage> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -469,20 +470,21 @@ class _UserPageState extends State<UserPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.grey[800]
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.amber, size: 16),
-                      SizedBox(width: 4),
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
+                      const SizedBox(width: 4),
                       Text('4.8', style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: Colors.grey[600]
                       )),
-                      Spacer(),
+                      const Spacer(),
                       Text('\$49.99', style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
                           color: Colors.blue[800]
@@ -500,144 +502,213 @@ class _UserPageState extends State<UserPage> {
 
   Widget _buildProfileScreen() {
     return SingleChildScrollView(
-      physics: BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          children: [
-            SizedBox(height: 20),
-            Center(
-              child: Stack(
-                alignment: Alignment.bottomRight,
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          // Modern header with gradient
+          Container(
+            height: 220,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue[800]!, Colors.indigo[900]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.blue[800]!,
-                          width: 3
+                  Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: 56,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _profileImageUrl != null
+                              ? NetworkImage(_profileImageUrl!)
+                              : null,
+                          child: _profileImageUrl == null
+                              ? Icon(Icons.person, size: 50, color: Colors.grey[500])
+                              : null,
+                        ),
                       ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 56,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: _profileImageUrl != null
-                          ? NetworkImage(_profileImageUrl!)
-                          : null,
-                      child: _profileImageUrl == null
-                          ? Icon(Icons.person, size: 50, color: Colors.grey[500])
-                          : null,
+                      FloatingActionButton.small(
+                        backgroundColor: Colors.blue[700],
+                        onPressed: _changeProfilePicture,
+                        child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    _userName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
-                  FloatingActionButton.small(
-                    backgroundColor: Colors.blue[800],
-                    onPressed: _changeProfilePicture,
-                    child: Icon(Icons.camera_alt, size: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    _userEmail,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withOpacity(0.8),
+                    ),
                   ),
                 ],
               ),
             ),
+          ),
 
-            SizedBox(height: 24),
-            Text(_userName, style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w600
-            )),
-            SizedBox(height: 4),
-            Text(_userEmail, style: GoogleFonts.poppins(
-                color: Colors.grey[600]
-            )),
-
-            SizedBox(height: 32),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey[200]!)
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    _buildProfileItem(
-                      icon: Icons.badge,
-                      title: "Student ID",
-                      value: _studentId,
+          // Profile content
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // Information card
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildProfileItem(
+                          icon: Icons.badge,
+                          title: "Student ID",
+                          value: _studentId,
+                          iconColor: Colors.blue[800]!,
+                        ),
+                        const Divider(height: 30, thickness: 0.5),
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: _firestore.collection('Students').doc(_userEmail.toLowerCase()).snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _buildProfileItem(
+                                icon: Icons.school,
+                                title: "Courses Enrolled",
+                                value: "Loading...",
+                                iconColor: Colors.green[700]!,
+                              );
+                            }
+                            if (!snapshot.hasData || !snapshot.data!.exists) {
+                              return _buildProfileItem(
+                                icon: Icons.school,
+                                title: "Courses Enrolled",
+                                value: "0",
+                                iconColor: Colors.green[700]!,
+                              );
+                            }
+                            final data = snapshot.data!.data() as Map<String, dynamic>;
+                            final registeredCourses = data['registeredCourses'] as List<dynamic>? ?? [];
+                            return _buildProfileItem(
+                              icon: Icons.school,
+                              title: "Courses Enrolled",
+                              value: registeredCourses.length.toString(),
+                              iconColor: Colors.green[700]!,
+                            );
+                          },
+                        ),
+                        const Divider(height: 30, thickness: 0.5),
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: _firestore.collection('Students').doc(_userEmail.toLowerCase()).snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _buildProfileItem(
+                                icon: Icons.star,
+                                title: "Achievements",
+                                value: "Loading...",
+                                iconColor: Colors.amber[700]!,
+                              );
+                            }
+                            if (!snapshot.hasData || !snapshot.data!.exists) {
+                              return _buildProfileItem(
+                                icon: Icons.star,
+                                title: "Achievements",
+                                value: "0",
+                                iconColor: Colors.amber[700]!,
+                              );
+                            }
+                            final data = snapshot.data!.data() as Map<String, dynamic>;
+                            final achievements = data['achievements'] as List<dynamic>? ?? [];
+                            return _buildProfileItem(
+                              icon: Icons.star,
+                              title: "Achievements",
+                              value: achievements.length.toString(),
+                              iconColor: Colors.amber[700]!,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
 
-            SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text("Account Settings", style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18
-              )),
-            ),
-            SizedBox(height: 16),
-            _buildSettingItem(
-              icon: Icons.edit,
-              title: "Edit Profile",
-              onTap: () => setState(() => _isEditingProfile = true),
-            ),
-            _buildSettingItem(
-              icon: Icons.help_center,
-              title: "Help Center",
-            ),
-            _buildSettingItem(
-              icon: Icons.logout,
-              title: "Logout",
-              color: Colors.red,
-              onTap: _logout,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditProfileForm() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        children: [
-          AppBar(
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back),
-              onPressed: () => setState(() => _isEditingProfile = false),
-            ),
-            title: Text('Edit Profile'),
-          ),
-          SizedBox(height: 20),
-          CircleAvatar(
-            radius: 60,
-            backgroundImage: _profileImageUrl != null
-                ? NetworkImage(_profileImageUrl!)
-                : null,
-            child: _profileImageUrl == null
-                ? Icon(Icons.person, size: 50, color: Colors.grey)
-                : null,
-          ),
-          SizedBox(height: 20),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              labelText: 'Full Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _updateUserProfile,
-            child: Text('Save Changes'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[800],
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                const SizedBox(height: 30),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Account Settings",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSettingItem(
+                  icon: Icons.edit,
+                  title: "Edit Profile",
+                  color: Colors.blue[700]!,
+                  onTap: () => setState(() => _isEditingProfile = true),
+                ),
+                _buildSettingItem(
+                  icon: Icons.notifications,
+                  title: "Notifications",
+                  color: Colors.purple[600]!,
+                ),
+                _buildSettingItem(
+                  icon: Icons.help_center,
+                  title: "Help Center",
+                  color: Colors.teal[600]!,
+                ),
+                _buildSettingItem(
+                  icon: Icons.security,
+                  title: "Privacy & Security",
+                  color: Colors.blueGrey[600]!,
+                ),
+                _buildSettingItem(
+                  icon: Icons.logout,
+                  title: "Logout",
+                  color: Colors.red[600]!,
+                  onTap: _logout,
+                ),
+              ],
             ),
           ),
         ],
@@ -645,30 +716,154 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildProfileItem({required IconData icon, required String title, required String value}) {
+  Widget _buildEditProfileForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
+              onPressed: () => setState(() => _isEditingProfile = false),
+            ),
+            title: Text(
+              'Edit Profile',
+              style: GoogleFonts.poppins(
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.blue[800]!,
+                    width: 3,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 68,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: _profileImageUrl != null
+                      ? NetworkImage(_profileImageUrl!)
+                      : null,
+                  child: _profileImageUrl == null
+                      ? Icon(Icons.person, size: 60, color: Colors.grey[500])
+                      : null,
+                ),
+              ),
+              FloatingActionButton.small(
+                backgroundColor: Colors.blue[800],
+                onPressed: _changeProfilePicture,
+                child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: 'Full Name',
+              labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.blue[800]!, width: 2),
+              ),
+              prefixIcon: Icon(Icons.person, color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(height: 24),
+          TextFormField(
+            controller: _idController,
+            readOnly: true, // Make read-only
+            decoration: InputDecoration(
+              labelText: 'Student ID',
+              labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.blue[800]!, width: 2),
+              ),
+              prefixIcon: Icon(Icons.badge, color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            onPressed: _updateUserProfile,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[800],
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              elevation: 4,
+            ),
+            child: Text(
+              'Save Changes',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color iconColor,
+  }) {
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: iconColor.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Colors.blue[800], size: 20),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.poppins(
+            Text(
+              title,
+              style: GoogleFonts.poppins(
                 color: Colors.grey[600],
-                fontSize: 14
-            )),
-            SizedBox(height: 4),
-            Text(value, style: GoogleFonts.poppins(
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
-                fontSize: 16
-            )),
+                fontSize: 18,
+                color: Colors.grey[800],
+              ),
+            ),
           ],
         ),
       ],
@@ -678,24 +873,37 @@ class _UserPageState extends State<UserPage> {
   Widget _buildSettingItem({
     required IconData icon,
     required String title,
-    Color? color,
+    required Color color,
     VoidCallback? onTap,
   }) {
     return Card(
-      margin: EdgeInsets.only(bottom: 12),
-      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey[100]!)
+        borderRadius: BorderRadius.circular(15),
       ),
       child: ListTile(
-        leading: Icon(icon, color: color ?? Colors.blue[800]),
-        title: Text(title, style: GoogleFonts.poppins()),
-        trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              fontSize: 16,
+              color: Colors.grey[800]
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: onTap,
-        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)
+          borderRadius: BorderRadius.circular(15),
         ),
       ),
     );
@@ -704,7 +912,7 @@ class _UserPageState extends State<UserPage> {
   Widget _buildBottomBar() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
@@ -714,7 +922,7 @@ class _UserPageState extends State<UserPage> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) => setState(() => _selectedIndex = index),
@@ -725,7 +933,7 @@ class _UserPageState extends State<UserPage> {
           showUnselectedLabels: false,
           type: BottomNavigationBarType.fixed,
           elevation: 0,
-          items: [
+          items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home_filled),
@@ -747,10 +955,10 @@ class _UserPageState extends State<UserPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator.adaptive(),
-          SizedBox(height: 20),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 20),
           Text(
-            'Loading your courses...',
+            'Loading your profile...',
             style: GoogleFonts.poppins(
               color: Colors.grey[600],
               fontSize: 16,
@@ -773,7 +981,7 @@ class _UserPageState extends State<UserPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'No courses available',
             style: GoogleFonts.poppins(
@@ -782,7 +990,7 @@ class _UserPageState extends State<UserPage> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Check back later for new courses',
             style: GoogleFonts.poppins(
@@ -845,11 +1053,11 @@ class _UserPageState extends State<UserPage> {
 class CustomListItem {
   final String name;
   final String content;
-  final String id; // Add the id property
+  final String id;
 
   CustomListItem({
     required this.name,
     required this.content,
-    required this.id, // Add id to the constructor
+    required this.id,
   });
 }

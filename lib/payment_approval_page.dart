@@ -130,7 +130,8 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
   void showTransactionDialog(DocumentSnapshot transaction, String statusFilter) {
     final data = transaction.data() as Map<String, dynamic>;
     final screenSize = MediaQuery.of(context).size;
-    final isLargeScreen = screenSize.width > 400; // iPhone 16 Pro Max width
+    final isSmallScreen = screenSize.width < 380;
+    final isMediumScreen = screenSize.width < 500;
 
     showDialog(
       context: context,
@@ -138,7 +139,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         return Dialog(
           backgroundColor: _cardColor,
           insetPadding: EdgeInsets.symmetric(
-            horizontal: isLargeScreen ? 24 : 16,
+            horizontal: isMediumScreen ? 12 : 24,
             vertical: 24,
           ),
           shape: RoundedRectangleBorder(
@@ -146,7 +147,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
           ),
           child: SingleChildScrollView(
             child: Padding(
-              padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
+              padding: EdgeInsets.all(isMediumScreen ? 16 : 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,23 +155,25 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Transaction Details',
-                        style: GoogleFonts.poppins(
-                          fontSize: isLargeScreen ? 22 : 20,
-                          fontWeight: FontWeight.w600,
-                          color: _textPrimary,
+                      Flexible(
+                        child: Text(
+                          'Transaction Details',
+                          style: GoogleFonts.poppins(
+                            fontSize: isSmallScreen ? 18 : 22,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: _textSecondary, size: 24),
+                        icon: Icon(Icons.close, color: _textSecondary, size: 22),
                         onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // Modern detail cards
                   _buildDetailCard(
@@ -199,7 +202,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                   // Status chip
                   Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: _getStatusColor(data['status']?.toString() ?? 'pending').withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -213,7 +216,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                         children: [
                           Icon(
                             _getStatusIcon(data['status']?.toString() ?? 'pending'),
-                            size: 18,
+                            size: 16,
                             color: _getStatusColor(data['status']?.toString() ?? 'pending'),
                           ),
                           const SizedBox(width: 8),
@@ -222,7 +225,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                             style: GoogleFonts.poppins(
                               color: _getStatusColor(data['status']?.toString() ?? 'pending'),
                               fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: isSmallScreen ? 12 : 14,
                               letterSpacing: 1.1,
                             ),
                           ),
@@ -231,7 +234,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // Payment proof section
                   if (data['paymentScreenshot'] != null) ...[
@@ -240,7 +243,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                       style: GoogleFonts.poppins(
                         color: _textPrimary,
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: isSmallScreen ? 15 : 16,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -253,7 +256,9 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            height: isLargeScreen ? 280 : 220,
+                            height: isSmallScreen
+                                ? screenSize.height * 0.25
+                                : screenSize.height * 0.3,
                             decoration: BoxDecoration(
                               color: _backgroundColor.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(16),
@@ -287,7 +292,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                                     child: const Icon(
                                       Icons.fullscreen,
                                       color: Colors.white,
-                                      size: 20,
+                                      size: 18,
                                     ),
                                   ),
                                 ),
@@ -297,35 +302,31 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                   ],
 
                   // Action buttons for pending transactions
                   if (statusFilter == 'pending')
-                    Row(
+                    Column(
                       children: [
-                        Expanded(
-                          child: _buildModernButton(
-                            label: 'Approve',
-                            icon: Icons.check_rounded,
-                            color: _successColor,
-                            onPressed: () {
-                              updatePaymentStatus(transaction, 'approved');
-                              Navigator.pop(context);
-                            },
-                          ),
+                        _buildModernButton(
+                          label: 'Approve',
+                          icon: Icons.check_rounded,
+                          color: _successColor,
+                          onPressed: () {
+                            updatePaymentStatus(transaction, 'approved');
+                            Navigator.pop(context);
+                          },
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildModernButton(
-                            label: 'Reject',
-                            icon: Icons.close_rounded,
-                            color: _errorColor,
-                            onPressed: () {
-                              updatePaymentStatus(transaction, 'dismissed');
-                              Navigator.pop(context);
-                            },
-                          ),
+                        const SizedBox(height: 12),
+                        _buildModernButton(
+                          label: 'Reject',
+                          icon: Icons.close_rounded,
+                          color: _errorColor,
+                          onPressed: () {
+                            updatePaymentStatus(transaction, 'dismissed');
+                            Navigator.pop(context);
+                          },
                         ),
                       ],
                     ),
@@ -343,9 +344,11 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
     required String title,
     required List<_DetailItem> items,
   }) {
+    final isSmallScreen = MediaQuery.of(context).size.width < 380;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
         color: _backgroundColor.withOpacity(0.4),
         borderRadius: BorderRadius.circular(16),
@@ -359,21 +362,23 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: _primaryColor),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: GoogleFonts.poppins(
-                  color: _textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+              Icon(icon, size: isSmallScreen ? 18 : 20, color: _primaryColor),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: isSmallScreen ? 15 : 16,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ...items.map((item) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -381,16 +386,16 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                   '${item.label}:',
                   style: GoogleFonts.poppins(
                     color: _textSecondary,
-                    fontSize: 14,
+                    fontSize: isSmallScreen ? 13 : 14,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     item.value,
                     style: GoogleFonts.poppins(
                       color: _textPrimary,
-                      fontSize: 14,
+                      fontSize: isSmallScreen ? 13 : 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -409,34 +414,37 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
     required Color color,
     required VoidCallback onPressed,
   }) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.1),
-        foregroundColor: color,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: color.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        elevation: 0,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color.withOpacity(0.1),
+          foregroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: color.withOpacity(0.3),
+              width: 1.5,
             ),
           ),
-        ],
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -446,12 +454,13 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
     final status = data['status']?.toString() ?? 'pending';
     final statusColor = _getStatusColor(status);
     final screenSize = MediaQuery.of(context).size;
-    final isLargeScreen = screenSize.width > 400;
+    final isSmallScreen = screenSize.width < 380;
+    final isMediumScreen = screenSize.width < 500;
 
     return Container(
       margin: EdgeInsets.symmetric(
-        horizontal: isLargeScreen ? 16 : 12,
-        vertical: isLargeScreen ? 8 : 6,
+        horizontal: isSmallScreen ? 10 : 16,
+        vertical: isSmallScreen ? 6 : 8,
       ),
       child: Material(
         color: _cardColor,
@@ -461,19 +470,19 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
           onTap: () => showTransactionDialog(transaction, statusFilter),
           borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
+            padding: EdgeInsets.all(isSmallScreen ? 14 : isMediumScreen ? 16 : 20),
             child: Row(
               children: [
                 // Status indicator
                 Container(
-                  width: 6,
-                  height: 60,
+                  width: 5,
+                  height: isSmallScreen ? 50 : 60,
                   decoration: BoxDecoration(
                     color: statusColor,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
 
                 // Content
                 Expanded(
@@ -482,19 +491,24 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            data['studentName']?.toString() ?? 'Unknown',
-                            style: GoogleFonts.poppins(
-                              fontSize: isLargeScreen ? 18 : 16,
-                              fontWeight: FontWeight.w600,
-                              color: _textPrimary,
+                          Flexible(
+                            child: Text(
+                              data['studentName']?.toString() ?? 'Unknown',
+                              style: GoogleFonts.poppins(
+                                fontSize: isSmallScreen ? 16 : 18,
+                                fontWeight: FontWeight.w600,
+                                color: _textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                              horizontal: 10,
+                              vertical: 5,
                             ),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
@@ -508,35 +522,37 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                               status,
                               style: GoogleFonts.poppins(
                                 color: statusColor,
-                                fontSize: 12,
+                                fontSize: isSmallScreen ? 11 : 12,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         data['courseName']?.toString() ?? 'No course',
                         style: GoogleFonts.poppins(
                           color: _textSecondary,
-                          fontSize: 14,
+                          fontSize: isSmallScreen ? 13 : 14,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           Icon(
                             Icons.calendar_today_outlined,
-                            size: 16,
+                            size: isSmallScreen ? 14 : 16,
                             color: _textSecondary,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Text(
                             '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
                             style: GoogleFonts.poppins(
                               color: _textSecondary,
-                              fontSize: 13,
+                              fontSize: isSmallScreen ? 12 : 13,
                             ),
                           ),
                           const Spacer(),
@@ -545,13 +561,13 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                             style: GoogleFonts.poppins(
                               color: _primaryColor,
                               fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: isSmallScreen ? 13 : 14,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.arrow_forward_ios_rounded,
-                            size: 14,
+                            size: isSmallScreen ? 12 : 14,
                             color: _primaryColor,
                           ),
                         ],
@@ -654,6 +670,9 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = MediaQuery.of(context).size.width < 380;
+
     if (!_isFirebaseInitialized) {
       return Scaffold(
         backgroundColor: _backgroundColor,
@@ -682,15 +701,16 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
             return [
               SliverAppBar(
                 backgroundColor: _cardColor,
-                expandedHeight: 140,
+                expandedHeight: isSmallScreen ? 100 : screenHeight * 0.16,
                 floating: true,
                 pinned: true,
                 flexibleSpace: FlexibleSpaceBar(
+                  titlePadding: const EdgeInsets.only(bottom: 16),
                   title: Text(
                     'Payment Approval',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
-                      fontSize: 22,
+                      fontSize: isSmallScreen ? 20 : 22,
                       color: _textPrimary,
                     ),
                   ),
@@ -722,11 +742,11 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                     unselectedLabelColor: _textSecondary,
                     labelStyle: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontSize: isSmallScreen ? 13 : 14,
                     ),
                     unselectedLabelStyle: GoogleFonts.poppins(
                       fontWeight: FontWeight.w500,
-                      fontSize: 14,
+                      fontSize: isSmallScreen ? 13 : 14,
                     ),
                     isScrollable: false,
                     tabs: const [

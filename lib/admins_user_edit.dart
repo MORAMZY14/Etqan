@@ -94,8 +94,16 @@ class AdminsUserEditPage extends StatelessWidget {
     final userEmail = userData['email'] as String? ?? 'No email';
     final userPhone = userData['phone'] as String? ?? '';
     final userDial = userData['dial'] as String? ?? '';
-    final registeredCourses = userData['RegisteredCourses'] as List<dynamic>?;
     final fullPhoneNumber = '$userDial$userPhone';
+
+    // CORRECTED: Handle string array for courses
+    final List<String> registeredCourses =
+    (userData['registeredCourses'] is List)
+        ? (userData['registeredCourses'] as List)
+        .map((item) => item.toString()) // Convert to string
+        .where((course) => course.isNotEmpty) // Filter out empty strings
+        .toList()
+        : [];
 
     return Container(
       decoration: BoxDecoration(
@@ -271,8 +279,8 @@ class AdminsUserEditPage extends StatelessWidget {
               ],
             ),
           ),
-          // Courses section
-          if (registeredCourses != null && registeredCourses.isNotEmpty)
+          // Courses section - UPDATED FOR STRING ARRAY
+          if (registeredCourses.isNotEmpty)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -311,9 +319,7 @@ class AdminsUserEditPage extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       itemCount: registeredCourses.length,
                       itemBuilder: (context, index) {
-                        final course = registeredCourses[index];
-                        final courseName = course['courseName'] ?? 'Unknown Course';
-                        final registrationDate = course['registrationDate']?.toDate() ?? DateTime.now();
+                        final courseName = registeredCourses[index];
 
                         return Container(
                           width: 160,
@@ -342,8 +348,9 @@ class AdminsUserEditPage extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const Spacer(),
+                              // Removed date since we don't have it
                               Text(
-                                'Enrolled: ${registrationDate.toLocal().toString().split(' ')[0]}',
+                                'Enrolled',
                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
