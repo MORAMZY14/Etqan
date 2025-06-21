@@ -16,6 +16,7 @@ import 'admin-settings_page.dart';
 import 'approval_admin_page.dart';
 import 'payment_approval_page.dart';
 import 'admin_report_page.dart';
+import 'trouble_admin_page.dart';
 
 class AdminPage extends StatefulWidget {
   final String email;
@@ -406,6 +407,15 @@ class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMix
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const ReportPage()),
+        ),
+      },
+      {
+        'title': 'Trouble Center',
+        'icon': Icons.warning,
+        'color': const Color(0xFFFFD700), // Gold color for warnings
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const TroubleCenterPage()),
         ),
       },
     ];

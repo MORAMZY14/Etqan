@@ -1,3 +1,4 @@
+import 'package:Etqan/user_trouble_center.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -694,8 +695,20 @@ class _UserPageState extends State<UserPage> {
                 ),
                 _buildSettingItem(
                   icon: Icons.help_center,
-                  title: "Help Center",
+                  title: "Trouble Center",
                   color: Colors.teal[600]!,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        // FIX: Pass the actual _userName variable instead of 'name'
+                        builder: (context) => HelpCenterPage(
+                          userEmail: _userEmail,
+                          userName: _userName,  // REMOVED QUOTES - passes the variable
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingItem(
                   icon: Icons.security,
