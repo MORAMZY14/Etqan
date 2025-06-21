@@ -74,7 +74,15 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         password: password,
       );
 
-      // 2. Verify admin status
+      // 2. Check if email is verified
+      User? user = userCredential.user;
+      if (user != null && !user.emailVerified) {
+        // Show verification dialog
+        await _showVerificationDialog(user);
+        return;
+      }
+
+      // 3. Verify admin status
       bool isAdmin = await _isAdmin(email);
 
       if (!isAdmin) {
@@ -86,7 +94,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         );
       }
 
-      // 3. Handle successful admin login
+      // 4. Handle successful admin login
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setString('adminEmail', email);
@@ -120,6 +128,47 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         });
       }
     }
+  }
+
+  Future<void> _showVerificationDialog(User user) async {
+    // Show verification dialog
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Email Not Verified'),
+        content: const Text('Please verify your email to access admin features.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await user.sendEmailVerification();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Verification email sent! Check your inbox.'),
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to send email: $e')),
+                );
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Resend Email'),
+          ),
+        ],
+      ),
+    );
+
+    // Always sign out after showing the dialog
+    await _firebaseAuth.signOut();
   }
 
   void _registerAdmin() {
