@@ -1,72 +1,30 @@
+# Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
 
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+use_frameworks!
+use_modular_headers!
 
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
+# Path to Flutter
+flutter_root = File.expand_path(File.join('..', '..', 'flutter'), __dir__)
+require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'))
 
-def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
-  end
-
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches
-  end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
-end
-
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-
+flutter_application_path = File.expand_path('..', __dir__)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Changed to dynamic frameworks for Firebase compatibility
-  use_frameworks! :linkage => :dynamic
+  use_frameworks!
   use_modular_headers!
 
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-
-  # Explicitly declare Firebase pods with compatible versions
-  pod 'FirebaseCore', '10.22.0'
-  pod 'FirebaseAuth', '10.22.0'
-  pod 'FirebaseFirestore', '10.22.0'
-  pod 'FirebaseStorage', '10.22.0'
-  pod 'FirebaseFunctions', '10.22.0'
-  pod 'FirebaseSharedSwift', '10.22.0'
-  pod 'GTMSessionFetcher/Core', '2.1.0'
+  flutter_install_all_ios_pods flutter_application_path
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
+    # Ensure iOS 15 compatibility
     target.build_configurations.each do |config|
-      # Set minimum Swift version to 5.9
-      config.build_settings['SWIFT_VERSION'] = '5.9'
-
-      # Add Swift standard libraries
-      config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-
-      # Enable library evolution
-      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-
-      # Compatibility settings
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      config.build_settings['ENABLE_BITCODE'] = 'NO'
-
-      # Workaround for Xcode 14.3 compatibility
-      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
-  end
-
-  # Workaround for FirebaseSharedSwift issues
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
   end
 end
