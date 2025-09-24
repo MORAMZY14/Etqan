@@ -7,6 +7,8 @@ class AdminsUserEditPage extends StatelessWidget {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
   GlobalKey<ScaffoldMessengerState>();
 
+  AdminsUserEditPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -78,10 +80,10 @@ class AdminsUserEditPage extends StatelessWidget {
           onPressed: () {
             // Add new student functionality
           },
-          child: const Icon(Icons.person_add_alt_1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          child: const Icon(Icons.person_add_alt_1),
         ),
       ),
     );
@@ -284,7 +286,7 @@ class AdminsUserEditPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.2),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(20),
                   bottomRight: Radius.circular(20),
@@ -368,7 +370,7 @@ class AdminsUserEditPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(20),
                   bottomRight: Radius.circular(20),
@@ -539,7 +541,7 @@ class AdminsUserEditPage extends StatelessWidget {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,

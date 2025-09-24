@@ -12,7 +12,7 @@ class TroubleCenterPage extends StatefulWidget {
 
 class _TroubleCenterPageState extends State<TroubleCenterPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<QueryDocumentSnapshot> _tickets = [];
+  final List<QueryDocumentSnapshot> _tickets = [];
   bool _isLoading = true;
   String _debugInfo = '';
 
@@ -672,7 +672,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                           ],
                         ),
                       ),
-                    )).toList(),
+                    )),
                     const SizedBox(height: 20),
                   ],
 
@@ -758,7 +758,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),

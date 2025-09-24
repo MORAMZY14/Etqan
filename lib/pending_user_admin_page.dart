@@ -13,7 +13,7 @@ class _PendingUsersPageState extends State<PendingUsersPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   late Future<List<String>> _pendingUsersFuture;
-  List<String> _selectedUsers = [];
+  final List<String> _selectedUsers = [];
   bool _isLoading = false;
 
   @override
@@ -173,7 +173,7 @@ class _PendingUsersPageState extends State<PendingUsersPage> {
                 hintText: 'Search users...',
                 prefixIcon: Icon(Icons.search, color: colorScheme.onSurface.withOpacity(0.6)),
                 filled: true,
-                fillColor: colorScheme.surfaceVariant.withOpacity(0.4),
+                fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.4),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -277,7 +277,7 @@ class _PendingUsersPageState extends State<PendingUsersPage> {
                     final userEmail = pendingUsers[index];
                     return Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceVariant.withOpacity(
+                        color: colorScheme.surfaceContainerHighest.withOpacity(
                             _selectedUsers.contains(userEmail) ? 0.3 : 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: _selectedUsers.contains(userEmail)

@@ -7,7 +7,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 class UserDetailsPage extends StatelessWidget {
   final String userId;
 
-  const UserDetailsPage({Key? key, required this.userId}) : super(key: key);
+  const UserDetailsPage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +473,7 @@ class UserDetailsPage extends StatelessWidget {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,

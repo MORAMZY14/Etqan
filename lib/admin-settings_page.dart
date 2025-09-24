@@ -15,7 +15,7 @@ class SettingsPage extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: Theme.of(context).colorScheme.onBackground,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),

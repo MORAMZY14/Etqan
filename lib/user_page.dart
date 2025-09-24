@@ -1,18 +1,15 @@
-import 'package:Etqan/user_trouble_center.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:convert';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'login_page.dart';
 import 'course_detailed_page.dart';
 import 'wishlist_page.dart';
 import 'show_courses_users_page.dart';
+import 'user_trouble_center.dart';
 
 class UserPage extends StatefulWidget {
   final String email;
@@ -38,6 +35,10 @@ class _UserPageState extends State<UserPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _idController = TextEditingController();
 
+  // Category filtering variables
+  String _selectedCategory = 'All';
+  final List<String> _categories = ['All', 'Development', 'Designing', 'Marketing', 'Business', 'Other'];
+
   int _selectedIndex = 0;
   final List<BottomNavigationBarItem> _navItems = [
     const BottomNavigationBarItem(
@@ -46,7 +47,7 @@ class _UserPageState extends State<UserPage> {
       label: 'Home',
     ),
     const BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
+      icon: Icon(Icons.person_outlined),
       activeIcon: Icon(Icons.person),
       label: 'Profile',
     ),
@@ -155,30 +156,52 @@ class _UserPageState extends State<UserPage> {
     }
   }
 
-  Future<void> _fetchCoursesFromFirestore() async {
+  Future<void> _fetchCoursesFromFirestore({String category = 'All'}) async {
     try {
-      final QuerySnapshot snapshot = await _firestore.collection('Courses').get();
+      Query query = _firestore.collection('Courses');
+
+      // Add category filter if not 'All'
+      if (category != 'All') {
+        query = query.where('category', isEqualTo: category);
+      }
+
+      final QuerySnapshot snapshot = await query.get();
+      print('Fetched ${snapshot.docs.length} courses for category: $category');
+
       final List<CustomListItem> courses = snapshot.docs.map((doc) {
+        print('Course: ${doc['name']}, Category: ${doc['category']}');
         return CustomListItem(
           name: doc['name']?.toString() ?? 'Unnamed Course',
           content: doc['content']?.toString() ?? '',
           id: doc.id,
+          category: doc['category']?.toString() ?? 'Other',
+          code: doc['code']?.toString() ?? 'N/A',
+          price: (doc['price'] ?? 0.0).toDouble(),
+          currency: doc['currency']?.toString() ?? '\$',
         );
       }).toList();
 
       setState(() => _items = courses);
     } catch (e) {
       print('Error fetching courses: $e');
-      if (_items.isEmpty) {
+      // Fallback to fetch all courses if there's an error with filtering
+      try {
         final fallbackSnapshot = await _firestore.collection('Courses').get();
         final fallbackCourses = fallbackSnapshot.docs.map((doc) {
           return CustomListItem(
             name: doc['name']?.toString() ?? 'Unnamed Course',
             content: doc['content']?.toString() ?? '',
             id: doc.id,
+            category: doc['category']?.toString() ?? 'Other',
+            code: doc['code']?.toString() ?? 'N/A',
+            price: (doc['price'] ?? 0.0).toDouble(),
+            currency: doc['currency']?.toString() ?? '\$',
           );
         }).toList();
         setState(() => _items = fallbackCourses);
+      } catch (e) {
+        print('Error fetching fallback courses: $e');
+        setState(() => _items = []);
       }
     }
   }
@@ -196,6 +219,7 @@ class _UserPageState extends State<UserPage> {
             final url = await _storage.ref(path).getDownloadURL();
             images[name] = url;
           } catch (e) {
+            print('Error fetching image for course $name: $e');
             images[name] = 'https://via.placeholder.com/150';
           }
         }
@@ -218,28 +242,39 @@ class _UserPageState extends State<UserPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color primaryColor = isDarkMode ? Colors.blue[300]! : Colors.blue[800]!;
+    final Color scaffoldBgColor = isDarkMode ? Colors.grey[900]! : Colors.grey[50]!;
+    final Color cardColor = isDarkMode ? Colors.grey[800]! : Colors.white;
+    final Color textColor = isDarkMode ? Colors.white : Colors.grey[800]!;
+    final Color secondaryTextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+    final Color iconColor = isDarkMode ? Colors.white : Colors.grey[800]!;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: scaffoldBgColor,
       body: _isLoading
-          ? _buildShimmerLoader()
+          ? _buildShimmerLoader(isDarkMode)
           : IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildHomeScreen(),
-          _isEditingProfile ? _buildEditProfileForm() : _buildProfileScreen(),
+          _buildHomeScreen(isDarkMode, primaryColor, cardColor, textColor, secondaryTextColor),
+          _isEditingProfile
+              ? _buildEditProfileForm(isDarkMode, primaryColor, cardColor, textColor, secondaryTextColor)
+              : _buildProfileScreen(isDarkMode, primaryColor, cardColor, textColor, secondaryTextColor),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
-      floatingActionButton: _selectedIndex == 0 ? _buildFloatingActionMenu() : null,
+      bottomNavigationBar: _buildBottomBar(isDarkMode, primaryColor),
+      floatingActionButton: _selectedIndex == 0 ? _buildFloatingActionMenu(primaryColor, isDarkMode, textColor) : null,
     );
   }
 
-  Widget _buildFloatingActionMenu() {
+  Widget _buildFloatingActionMenu(Color primaryColor, bool isDarkMode, Color textColor) {
     return FloatingActionButton(
-      backgroundColor: Colors.blue[800],
+      backgroundColor: primaryColor,
       onPressed: () {
         showModalBottomSheet(
           context: context,
+          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
@@ -252,13 +287,14 @@ class _UserPageState extends State<UserPage> {
                   Text('Course Actions', style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Colors.blue[800]
+                      color: primaryColor
                   )),
                   const SizedBox(height: 20),
                   _buildActionButton(
                       icon: Icons.checklist_rounded,
                       label: 'Select Courses',
                       color: Colors.blueAccent,
+                      isDarkMode: isDarkMode,
                       onPressed: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(
@@ -269,6 +305,7 @@ class _UserPageState extends State<UserPage> {
                       icon: Icons.delete_outline,
                       label: 'Delete Courses',
                       color: Colors.redAccent,
+                      isDarkMode: isDarkMode,
                       onPressed: () {
                         Navigator.pop(context);
                         _deleteCourse();
@@ -278,6 +315,7 @@ class _UserPageState extends State<UserPage> {
                       icon: Icons.list_alt,
                       label: 'Show All Courses',
                       color: Colors.green,
+                      isDarkMode: isDarkMode,
                       onPressed: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(
@@ -291,7 +329,7 @@ class _UserPageState extends State<UserPage> {
           },
         );
       },
-      child: const Icon(Icons.menu, color: Colors.white),
+      child: Icon(Icons.menu, color: isDarkMode ? Colors.black : Colors.white),
     );
   }
 
@@ -299,6 +337,7 @@ class _UserPageState extends State<UserPage> {
     required IconData icon,
     required String label,
     required Color color,
+    required bool isDarkMode,
     required VoidCallback onPressed,
   }) {
     return ListTile(
@@ -313,14 +352,14 @@ class _UserPageState extends State<UserPage> {
       title: Text(label, style: GoogleFonts.poppins(
           fontWeight: FontWeight.w500,
           fontSize: 16,
-          color: Colors.grey[800]
+          color: isDarkMode ? Colors.white : Colors.grey[800]
       )),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: Icon(Icons.chevron_right, color: isDarkMode ? Colors.grey[400] : Colors.grey),
       onTap: onPressed,
     );
   }
 
-  Widget _buildHomeScreen() {
+  Widget _buildHomeScreen(bool isDarkMode, Color primaryColor, Color cardColor, Color textColor, Color secondaryTextColor) {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -338,7 +377,7 @@ class _UserPageState extends State<UserPage> {
             background: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue[800]!, Colors.indigo[900]!],
+                  colors: [primaryColor, isDarkMode ? Colors.indigo[700]! : Colors.indigo[900]!],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -362,11 +401,11 @@ class _UserPageState extends State<UserPage> {
                 Text('Hello, $_userName!', style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[800]
+                    color: textColor
                 )),
                 const SizedBox(height: 8),
                 Text('Find your next course', style: GoogleFonts.poppins(
-                    color: Colors.grey[600]
+                    color: secondaryTextColor
                 )),
                 const SizedBox(height: 24),
               ],
@@ -377,14 +416,14 @@ class _UserPageState extends State<UserPage> {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(
-            child: _buildCategoryFilter(),
+            child: _buildCategoryFilter(isDarkMode, primaryColor),
           ),
         ),
 
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: _items.isEmpty
-              ? SliverToBoxAdapter(child: _buildEmptyState())
+              ? SliverToBoxAdapter(child: _buildEmptyState(isDarkMode, _selectedCategory))
               : SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -396,7 +435,7 @@ class _UserPageState extends State<UserPage> {
                   (context, index) {
                 final course = _items[index];
                 final image = _courseImages[course.name] ?? 'https://via.placeholder.com/150';
-                return _buildCourseCard(course.name, image, course.id);
+                return _buildCourseCard(course, image, isDarkMode, cardColor, textColor, secondaryTextColor, primaryColor);
               },
               childCount: _items.length,
             ),
@@ -406,29 +445,38 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildCategoryFilter() {
-    final categories = ['All', 'Popular', 'New', 'Design', 'Development'];
+  Widget _buildCategoryFilter(bool isDarkMode, Color primaryColor) {
     return SizedBox(
       height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
+        itemCount: _categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final category = categories[index];
-          final isSelected = category == 'All';
+          final category = _categories[index];
+          final isSelected = _selectedCategory == category;
           return FilterChip(
             label: Text(category),
             selected: isSelected,
-            onSelected: (_) => {},
+            onSelected: (_) {
+              setState(() {
+                _selectedCategory = category;
+                _isLoading = true;
+              });
+              _fetchCoursesFromFirestore(category: category == 'All' ? 'All' : category).then((_) {
+                setState(() {
+                  _isLoading = false;
+                });
+              });
+            },
             labelStyle: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
-              color: isSelected ? Colors.white : Colors.blue[800],
+              color: isSelected ? Colors.white : primaryColor,
             ),
-            backgroundColor: Colors.white,
-            selectedColor: Colors.blue[800]!,
+            backgroundColor: isDarkMode ? Colors.grey[700] : Colors.white,
+            selectedColor: primaryColor,
             shape: StadiumBorder(
-                side: BorderSide(color: Colors.grey[300]!)
+                side: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!)
             ),
           );
         },
@@ -436,15 +484,16 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildCourseCard(String title, String imageUrl, String courseId) {
+  Widget _buildCourseCard(CustomListItem course, String imageUrl, bool isDarkMode, Color cardColor, Color textColor, Color secondaryTextColor, Color primaryColor) {
     return Card(
       elevation: 0,
+      color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => _navigateToCourseDetail(title, imageUrl, courseId),
+        onTap: () => _navigateToCourseDetail(course.name, imageUrl, course.id),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -455,8 +504,8 @@ class _UserPageState extends State<UserPage> {
                   imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[200],
-                    child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                    color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                    child: Icon(Icons.broken_image, color: isDarkMode ? Colors.grey[500] : Colors.grey[400]),
                   ),
                 ),
               ),
@@ -467,13 +516,21 @@ class _UserPageState extends State<UserPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    course.code,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    course.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: Colors.grey[800]
+                        color: textColor
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -483,12 +540,12 @@ class _UserPageState extends State<UserPage> {
                       const SizedBox(width: 4),
                       Text('4.8', style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: Colors.grey[600]
+                          color: secondaryTextColor
                       )),
                       const Spacer(),
-                      Text('\$49.99', style: GoogleFonts.poppins(
+                      Text('${course.currency}${course.price.toStringAsFixed(2)}', style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
-                          color: Colors.blue[800]
+                          color: primaryColor
                       )),
                     ],
                   ),
@@ -501,7 +558,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildProfileScreen() {
+  Widget _buildProfileScreen(bool isDarkMode, Color primaryColor, Color cardColor, Color textColor, Color secondaryTextColor) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
@@ -511,7 +568,7 @@ class _UserPageState extends State<UserPage> {
             height: 220,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.blue[800]!, Colors.indigo[900]!],
+                colors: [primaryColor, isDarkMode ? Colors.indigo[700]! : Colors.indigo[900]!],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -546,17 +603,17 @@ class _UserPageState extends State<UserPage> {
                         ),
                         child: CircleAvatar(
                           radius: 56,
-                          backgroundColor: Colors.grey[200],
+                          backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[200],
                           backgroundImage: _profileImageUrl != null
                               ? NetworkImage(_profileImageUrl!)
                               : null,
                           child: _profileImageUrl == null
-                              ? Icon(Icons.person, size: 50, color: Colors.grey[500])
+                              ? Icon(Icons.person, size: 50, color: isDarkMode ? Colors.grey[400] : Colors.grey[500])
                               : null,
                         ),
                       ),
                       FloatingActionButton.small(
-                        backgroundColor: Colors.blue[700],
+                        backgroundColor: primaryColor,
                         onPressed: _changeProfilePicture,
                         child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
                       ),
@@ -591,6 +648,7 @@ class _UserPageState extends State<UserPage> {
                 // Information card
                 Card(
                   elevation: 4,
+                  color: cardColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -602,7 +660,9 @@ class _UserPageState extends State<UserPage> {
                           icon: Icons.badge,
                           title: "Student ID",
                           value: _studentId,
-                          iconColor: Colors.blue[800]!,
+                          iconColor: primaryColor,
+                          textColor: textColor,
+                          secondaryTextColor: secondaryTextColor,
                         ),
                         const Divider(height: 30, thickness: 0.5),
                         StreamBuilder<DocumentSnapshot>(
@@ -614,6 +674,8 @@ class _UserPageState extends State<UserPage> {
                                 title: "Courses Enrolled",
                                 value: "Loading...",
                                 iconColor: Colors.green[700]!,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               );
                             }
                             if (!snapshot.hasData || !snapshot.data!.exists) {
@@ -622,6 +684,8 @@ class _UserPageState extends State<UserPage> {
                                 title: "Courses Enrolled",
                                 value: "0",
                                 iconColor: Colors.green[700]!,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               );
                             }
                             final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -631,6 +695,8 @@ class _UserPageState extends State<UserPage> {
                               title: "Courses Enrolled",
                               value: registeredCourses.length.toString(),
                               iconColor: Colors.green[700]!,
+                              textColor: textColor,
+                              secondaryTextColor: secondaryTextColor,
                             );
                           },
                         ),
@@ -644,6 +710,8 @@ class _UserPageState extends State<UserPage> {
                                 title: "Achievements",
                                 value: "Loading...",
                                 iconColor: Colors.amber[700]!,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               );
                             }
                             if (!snapshot.hasData || !snapshot.data!.exists) {
@@ -652,6 +720,8 @@ class _UserPageState extends State<UserPage> {
                                 title: "Achievements",
                                 value: "0",
                                 iconColor: Colors.amber[700]!,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
                               );
                             }
                             final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -661,6 +731,8 @@ class _UserPageState extends State<UserPage> {
                               title: "Achievements",
                               value: achievements.length.toString(),
                               iconColor: Colors.amber[700]!,
+                              textColor: textColor,
+                              secondaryTextColor: secondaryTextColor,
                             );
                           },
                         ),
@@ -677,7 +749,7 @@ class _UserPageState extends State<UserPage> {
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 18,
-                      color: Colors.grey[800],
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -685,26 +757,31 @@ class _UserPageState extends State<UserPage> {
                 _buildSettingItem(
                   icon: Icons.edit,
                   title: "Edit Profile",
-                  color: Colors.blue[700]!,
+                  color: primaryColor,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
                   onTap: () => setState(() => _isEditingProfile = true),
                 ),
                 _buildSettingItem(
                   icon: Icons.notifications,
                   title: "Notifications",
                   color: Colors.purple[600]!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
                 ),
                 _buildSettingItem(
                   icon: Icons.help_center,
-                  title: "Trouble Center",
+                  title: 'Help Center',
                   color: Colors.teal[600]!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        // FIX: Pass the actual _userName variable instead of 'name'
                         builder: (context) => HelpCenterPage(
                           userEmail: _userEmail,
-                          userName: _userName,  // REMOVED QUOTES - passes the variable
+                          userName: _userName,
                         ),
                       ),
                     );
@@ -714,11 +791,15 @@ class _UserPageState extends State<UserPage> {
                   icon: Icons.security,
                   title: "Privacy & Security",
                   color: Colors.blueGrey[600]!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
                 ),
                 _buildSettingItem(
                   icon: Icons.logout,
                   title: "Logout",
                   color: Colors.red[600]!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
                   onTap: _logout,
                 ),
               ],
@@ -729,7 +810,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildEditProfileForm() {
+  Widget _buildEditProfileForm(bool isDarkMode, Color primaryColor, Color cardColor, Color textColor, Color secondaryTextColor) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -738,13 +819,13 @@ class _UserPageState extends State<UserPage> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
+              icon: Icon(Icons.arrow_back, color: textColor),
               onPressed: () => setState(() => _isEditingProfile = false),
             ),
             title: Text(
               'Edit Profile',
               style: GoogleFonts.poppins(
-                color: Colors.grey[800],
+                color: textColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -759,23 +840,23 @@ class _UserPageState extends State<UserPage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.blue[800]!,
+                    color: primaryColor,
                     width: 3,
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 68,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[200],
                   backgroundImage: _profileImageUrl != null
                       ? NetworkImage(_profileImageUrl!)
                       : null,
                   child: _profileImageUrl == null
-                      ? Icon(Icons.person, size: 60, color: Colors.grey[500])
+                      ? Icon(Icons.person, size: 60, color: isDarkMode ? Colors.grey[400] : Colors.grey[500])
                       : null,
                 ),
               ),
               FloatingActionButton.small(
-                backgroundColor: Colors.blue[800],
+                backgroundColor: primaryColor,
                 onPressed: _changeProfilePicture,
                 child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
               ),
@@ -784,43 +865,45 @@ class _UserPageState extends State<UserPage> {
           const SizedBox(height: 30),
           TextFormField(
             controller: _nameController,
+            style: TextStyle(color: textColor),
             decoration: InputDecoration(
               labelText: 'Full Name',
-              labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+              labelStyle: GoogleFonts.poppins(color: secondaryTextColor),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.grey[300]!),
+                borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.blue[800]!, width: 2),
+                borderSide: BorderSide(color: primaryColor, width: 2),
               ),
-              prefixIcon: Icon(Icons.person, color: Colors.grey[600]),
+              prefixIcon: Icon(Icons.person, color: secondaryTextColor),
             ),
           ),
           const SizedBox(height: 24),
           TextFormField(
             controller: _idController,
-            readOnly: true, // Make read-only
+            readOnly: true,
+            style: TextStyle(color: textColor),
             decoration: InputDecoration(
               labelText: 'Student ID',
-              labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+              labelStyle: GoogleFonts.poppins(color: secondaryTextColor),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.grey[300]!),
+                borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.blue[800]!, width: 2),
+                borderSide: BorderSide(color: primaryColor, width: 2),
               ),
-              prefixIcon: Icon(Icons.badge, color: Colors.grey[600]),
+              prefixIcon: Icon(Icons.badge, color: secondaryTextColor),
             ),
           ),
           const SizedBox(height: 30),
           ElevatedButton(
             onPressed: _updateUserProfile,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[800],
+              backgroundColor: primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -846,6 +929,8 @@ class _UserPageState extends State<UserPage> {
     required String title,
     required String value,
     required Color iconColor,
+    required Color textColor,
+    required Color secondaryTextColor,
   }) {
     return Row(
       children: [
@@ -864,7 +949,7 @@ class _UserPageState extends State<UserPage> {
             Text(
               title,
               style: GoogleFonts.poppins(
-                color: Colors.grey[600],
+                color: secondaryTextColor,
                 fontSize: 14,
               ),
             ),
@@ -874,7 +959,7 @@ class _UserPageState extends State<UserPage> {
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 18,
-                color: Colors.grey[800],
+                color: textColor,
               ),
             ),
           ],
@@ -887,11 +972,14 @@ class _UserPageState extends State<UserPage> {
     required IconData icon,
     required String title,
     required Color color,
+    required bool isDarkMode,
+    required Color textColor,
     VoidCallback? onTap,
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
+      color: isDarkMode ? Colors.grey[800] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
@@ -909,10 +997,10 @@ class _UserPageState extends State<UserPage> {
           style: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
               fontSize: 16,
-              color: Colors.grey[800]
+              color: textColor
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        trailing: Icon(Icons.chevron_right, color: isDarkMode ? Colors.grey[400] : Colors.grey),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
@@ -922,7 +1010,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(bool isDarkMode, Color primaryColor) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -939,9 +1027,9 @@ class _UserPageState extends State<UserPage> {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) => setState(() => _selectedIndex = index),
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.blue[800],
-          unselectedItemColor: Colors.grey[600],
+          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+          selectedItemColor: primaryColor,
+          unselectedItemColor: isDarkMode ? Colors.grey[400] : Colors.grey[600],
           showSelectedLabels: false,
           showUnselectedLabels: false,
           type: BottomNavigationBarType.fixed,
@@ -963,7 +1051,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildShimmerLoader() {
+  Widget _buildShimmerLoader(bool isDarkMode) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -973,7 +1061,7 @@ class _UserPageState extends State<UserPage> {
           Text(
             'Loading your profile...',
             style: GoogleFonts.poppins(
-              color: Colors.grey[600],
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               fontSize: 16,
             ),
           ),
@@ -982,23 +1070,23 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDarkMode, String category) {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
       ),
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+          Icon(Icons.search_off, size: 48, color: isDarkMode ? Colors.grey[500] : Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'No courses available',
+            category == 'All' ? 'No courses available' : 'No $category courses',
             style: GoogleFonts.poppins(
-              color: Colors.grey[600],
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               fontSize: 18,
               fontWeight: FontWeight.w500,
             ),
@@ -1007,7 +1095,7 @@ class _UserPageState extends State<UserPage> {
           Text(
             'Check back later for new courses',
             style: GoogleFonts.poppins(
-              color: Colors.grey[500],
+              color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
             ),
           ),
         ],
@@ -1036,26 +1124,37 @@ class _UserPageState extends State<UserPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Change Profile Picture', style: GoogleFonts.poppins()),
-        content: Text('Select a method to update your profile picture', style: GoogleFonts.poppins()),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.white,
+        title: Text('Change Profile Picture', style: GoogleFonts.poppins(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+        )),
+        content: Text('Select a method to update your profile picture', style: GoogleFonts.poppins(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[700],
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+            child: Text('Cancel', style: GoogleFonts.poppins(
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[700],
+            )),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               // Open camera
             },
-            child: Text('Camera', style: GoogleFonts.poppins(color: Colors.blue[800])),
+            child: Text('Camera', style: GoogleFonts.poppins(
+              color: Theme.of(context).colorScheme.primary,
+            )),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               // Open gallery
             },
-            child: Text('Gallery', style: GoogleFonts.poppins(color: Colors.blue[800])),
+            child: Text('Gallery', style: GoogleFonts.poppins(
+              color: Theme.of(context).colorScheme.primary,
+            )),
           ),
         ],
       ),
@@ -1067,10 +1166,18 @@ class CustomListItem {
   final String name;
   final String content;
   final String id;
+  final String category;
+  final String code;
+  final double price;
+  final String currency;
 
   CustomListItem({
     required this.name,
     required this.content,
     required this.id,
+    this.category = 'Other',
+    required this.code,
+    required this.price,
+    required this.currency,
   });
 }

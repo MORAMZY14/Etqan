@@ -245,8 +245,9 @@ class _ReportPageState extends State<ReportPage> {
 
     for (var reg in _allRegistrations) {
       final status = reg['status'] as String? ?? 'pending';
-      if (status == 'approved') approved++;
-      else if (status == 'pending') pending++;
+      if (status == 'approved') {
+        approved++;
+      } else if (status == 'pending') pending++;
       else if (status == 'rejected' || status == 'dismissed') rejected++;
     }
 

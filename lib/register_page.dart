@@ -27,7 +27,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _universityController = TextEditingController();
   final TextEditingController _branchController = TextEditingController();
 
-  String _selectedDialCode = '+20';
+  String _selectedDialCode = '+966';
+  String _selectedCountryCode = 'KSA';
   bool _isRegisterButtonEnabled = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -35,7 +36,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isGmail = true;
   bool _passwordsMatch = true;
   bool _agreeToTerms = false;
-  bool _verificationEmailSent = false;
+  final bool _verificationEmailSent = false;
 
   Uint8List? _selectedImageBytes;
 
@@ -48,6 +49,15 @@ class _RegisterPageState extends State<RegisterPage> {
   final Color _errorColor = const Color(0xFFFF3B30); // Apple Red
   final Color _textColor = const Color(0xFF1C1C1E); // Apple Black
   final Color _hintColor = const Color(0xFF8E8E93); // Apple Gray
+
+  // List of countries with dial codes and flags
+  final List<Map<String, String>> countries = [
+    {'code': 'KSA', 'name': 'Saudi Arabia', 'dial_code': '+966', 'flag': '🇸🇦'},
+    {'code': 'EG', 'name': 'Egypt', 'dial_code': '+20', 'flag': '🇪🇬'},
+    {'code': 'LB', 'name': 'Lebanon', 'dial_code': '+961', 'flag': '🇱🇧'},
+    {'code': 'OMN', 'name': 'OMAN', 'dial_code': '+968', 'flag': '🇴🇲'}
+    // Add more countries as needed
+  ];
 
   @override
   void initState() {
@@ -339,8 +349,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: isDarkMode ? Colors.grey[900] : _backgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -380,7 +392,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     'Join our learning community',
                     style: TextStyle(
                       fontSize: 16,
-                      color: _hintColor,
+                      color: isDarkMode ? Colors.white70 : _hintColor,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -388,7 +400,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   // Form container
                   Container(
                     decoration: BoxDecoration(
-                      color: _surfaceColor,
+                      color: isDarkMode ? Colors.grey[800] : _surfaceColor,
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
@@ -402,21 +414,21 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildEmailField(),
+                        _buildEmailField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildNameField(),
+                        _buildNameField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildPasswordField(),
+                        _buildPasswordField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildConfirmPasswordField(),
+                        _buildConfirmPasswordField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildPhoneField(),
+                        _buildPhoneField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildUniversityField(),
+                        _buildUniversityField(isDarkMode),
                         const SizedBox(height: 16),
-                        _buildBranchField(),
+                        _buildBranchField(isDarkMode),
                         const SizedBox(height: 20),
-                        _buildTermsAgreement(),
+                        _buildTermsAgreement(isDarkMode),
                         const SizedBox(height: 24),
                         _buildRegisterButton(),
                       ],
@@ -432,6 +444,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildProfilePictureSection() {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: _pickImage,
       child: Stack(
@@ -492,7 +506,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _buildEmailField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -500,7 +514,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'Email Address',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -508,13 +522,13 @@ class _RegisterPageState extends State<RegisterPage> {
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.email_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.email_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             hintText: 'your.email@gmail.com',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -551,7 +565,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildNameField() {
+  Widget _buildNameField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -559,7 +573,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'Full Name',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -567,13 +581,13 @@ class _RegisterPageState extends State<RegisterPage> {
         TextField(
           controller: _nameController,
           keyboardType: TextInputType.name,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.person_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.person_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             hintText: 'Your full name',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -593,7 +607,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -601,7 +615,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'Password',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -609,17 +623,17 @@ class _RegisterPageState extends State<RegisterPage> {
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.lock_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.lock_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscurePassword
                     ? Icons.visibility_off_rounded
                     : Icons.visibility_rounded,
-                color: _hintColor,
+                color: isDarkMode ? Colors.white70 : _hintColor,
               ),
               onPressed: () {
                 setState(() {
@@ -628,7 +642,7 @@ class _RegisterPageState extends State<RegisterPage> {
               },
             ),
             hintText: '••••••••',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -648,7 +662,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildConfirmPasswordField() {
+  Widget _buildConfirmPasswordField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -656,7 +670,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'Confirm Password',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -664,17 +678,17 @@ class _RegisterPageState extends State<RegisterPage> {
         TextField(
           controller: _confirmPasswordController,
           obscureText: _obscureConfirmPassword,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.lock_outline_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.lock_outline_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureConfirmPassword
                     ? Icons.visibility_off_rounded
                     : Icons.visibility_rounded,
-                color: _hintColor,
+                color: isDarkMode ? Colors.white70 : _hintColor,
               ),
               onPressed: () {
                 setState(() {
@@ -683,7 +697,7 @@ class _RegisterPageState extends State<RegisterPage> {
               },
             ),
             hintText: '••••••••',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -720,7 +734,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildPhoneField() {
+  Widget _buildPhoneField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -728,7 +742,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'Phone Number',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -739,29 +753,39 @@ class _RegisterPageState extends State<RegisterPage> {
               height: 50,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: _backgroundColor,
+                color: isDarkMode ? Colors.grey[700] : _backgroundColor,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: _selectedDialCode,
-                  icon: Icon(Icons.arrow_drop_down_rounded, color: _hintColor),
-                  items: <String>['+20', '+1', '+44', '+91']
-                      .map<DropdownMenuItem<String>>((String value) {
+                  value: _selectedCountryCode,
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
+                  dropdownColor: isDarkMode ? Colors.grey[800] : _surfaceColor,
+                  items: countries.map<DropdownMenuItem<String>>((Map<String, String> country) {
                     return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: _textColor,
-                        ),
+                      value: country['code'],
+                      child: Row(
+                        children: [
+                          Text(
+                            country['flag']!,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            country['dial_code']!,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: isDarkMode ? Colors.white : _textColor,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
                     setState(() {
-                      _selectedDialCode = newValue!;
+                      _selectedCountryCode = newValue!;
+                      _selectedDialCode = countries.firstWhere((country) => country['code'] == newValue)['dial_code']!;
                     });
                   },
                 ),
@@ -772,13 +796,13 @@ class _RegisterPageState extends State<RegisterPage> {
               child: TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                style: TextStyle(color: _textColor, fontSize: 16),
+                style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: _backgroundColor,
-                  prefixIcon: Icon(Icons.phone_iphone_rounded, color: _hintColor),
+                  fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+                  prefixIcon: Icon(Icons.phone_iphone_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
                   hintText: '123 456 7890',
-                  hintStyle: TextStyle(color: _hintColor),
+                  hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -801,7 +825,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildUniversityField() {
+  Widget _buildUniversityField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -809,20 +833,20 @@ class _RegisterPageState extends State<RegisterPage> {
           'University',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 6),
         TextField(
           controller: _universityController,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.school_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.school_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             hintText: 'University name',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -842,7 +866,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildBranchField() {
+  Widget _buildBranchField(bool isDarkMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -850,20 +874,20 @@ class _RegisterPageState extends State<RegisterPage> {
           'Branch/Department',
           style: TextStyle(
             fontSize: 14,
-            color: _textColor,
+            color: isDarkMode ? Colors.white : _textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 6),
         TextField(
           controller: _branchController,
-          style: TextStyle(color: _textColor, fontSize: 16),
+          style: TextStyle(color: isDarkMode ? Colors.white : _textColor, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _backgroundColor,
-            prefixIcon: Icon(Icons.business_center_rounded, color: _hintColor),
+            fillColor: isDarkMode ? Colors.grey[700] : _backgroundColor,
+            prefixIcon: Icon(Icons.business_center_rounded, color: isDarkMode ? Colors.white70 : _hintColor),
             hintText: 'Your field of study',
-            hintStyle: TextStyle(color: _hintColor),
+            hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : _hintColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -883,7 +907,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildTermsAgreement() {
+  Widget _buildTermsAgreement(bool isDarkMode) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -909,7 +933,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 'I agree to the ',
                 style: TextStyle(
                   fontSize: 14,
-                  color: _hintColor,
+                  color: isDarkMode ? Colors.white70 : _hintColor,
                 ),
               ),
               GestureDetector(

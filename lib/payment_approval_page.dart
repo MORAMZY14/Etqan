@@ -402,7 +402,7 @@ class _PaymentApprovalPageState extends State<PaymentApprovalPage>
                 ),
               ],
             ),
-          )).toList(),
+          )),
         ],
       ),
     );

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -8,6 +7,21 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'admin_login_page.dart';
 import 'dart:async';
+
+// Country model class
+class Country {
+  final String name;
+  final String dialCode;
+  final String code;
+  final String flag;
+
+  Country({
+    required this.name,
+    required this.dialCode,
+    required this.code,
+    required this.flag,
+  });
+}
 
 class RegisterAdminPage extends StatefulWidget {
   const RegisterAdminPage({super.key});
@@ -31,6 +45,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
   final TextEditingController _verificationCodeController = TextEditingController();
 
   String _selectedDialCode = '+20';
+  String _selectedCountryCode = 'EG';
   bool _isRegisterButtonEnabled = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -44,6 +59,54 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
   Timer? _resendTimerInstance;
 
   Uint8List? _selectedImageBytes;
+
+  // List of countries with dial codes and flags
+  final List<Country> _countries = [
+    Country(name: 'Egypt', dialCode: '+20', code: 'EG', flag: '🇪🇬'),
+    Country(name: 'United States', dialCode: '+1', code: 'US', flag: '🇺🇸'),
+    Country(name: 'United Kingdom', dialCode: '+44', code: 'GB', flag: '🇬🇧'),
+    Country(name: 'India', dialCode: '+91', code: 'IN', flag: '🇮🇳'),
+    Country(name: 'Saudi Arabia', dialCode: '+966', code: 'SA', flag: '🇸🇦'),
+    Country(name: 'United Arab Emirates', dialCode: '+971', code: 'AE', flag: '🇦🇪'),
+    Country(name: 'Qatar', dialCode: '+974', code: 'QA', flag: '🇶🇦'),
+    Country(name: 'Kuwait', dialCode: '+965', code: 'KW', flag: '🇰🇼'),
+    Country(name: 'Germany', dialCode: '+49', code: 'DE', flag: '🇩🇪'),
+    Country(name: 'France', dialCode: '+33', code: 'FR', flag: '🇫🇷'),
+    Country(name: 'Italy', dialCode: '+39', code: 'IT', flag: '🇮🇹'),
+    Country(name: 'Spain', dialCode: '+34', code: 'ES', flag: '🇪🇸'),
+    Country(name: 'China', dialCode: '+86', code: 'CN', flag: '🇨🇳'),
+    Country(name: 'Japan', dialCode: '+81', code: 'JP', flag: '🇯🇵'),
+    Country(name: 'South Korea', dialCode: '+82', code: 'KR', flag: '🇰🇷'),
+    Country(name: 'Australia', dialCode: '+61', code: 'AU', flag: '🇦🇺'),
+    Country(name: 'Canada', dialCode: '+1', code: 'CA', flag: '🇨🇦'),
+    Country(name: 'Brazil', dialCode: '+55', code: 'BR', flag: '🇧🇷'),
+    Country(name: 'Argentina', dialCode: '+54', code: 'AR', flag: '🇦🇷'),
+    Country(name: 'South Africa', dialCode: '+27', code: 'ZA', flag: '🇿🇦'),
+    Country(name: 'Nigeria', dialCode: '+234', code: 'NG', flag: '🇳🇬'),
+    Country(name: 'Kenya', dialCode: '+254', code: 'KE', flag: '🇰🇪'),
+    Country(name: 'Turkey', dialCode: '+90', code: 'TR', flag: '🇹🇷'),
+    Country(name: 'Russia', dialCode: '+7', code: 'RU', flag: '🇷🇺'),
+    Country(name: 'Netherlands', dialCode: '+31', code: 'NL', flag: '🇳🇱'),
+    Country(name: 'Sweden', dialCode: '+46', code: 'SE', flag: '🇸🇪'),
+    Country(name: 'Norway', dialCode: '+47', code: 'NO', flag: '🇳🇴'),
+    Country(name: 'Switzerland', dialCode: '+41', code: 'CH', flag: '🇨🇭'),
+    Country(name: 'Belgium', dialCode: '+32', code: 'BE', flag: '🇧🇪'),
+    Country(name: 'Portugal', dialCode: '+351', code: 'PT', flag: '🇵🇹'),
+    Country(name: 'Greece', dialCode: '+30', code: 'GR', flag: '🇬🇷'),
+    Country(name: 'Pakistan', dialCode: '+92', code: 'PK', flag: '🇵🇰'),
+    Country(name: 'Bangladesh', dialCode: '+880', code: 'BD', flag: '🇧🇩'),
+    Country(name: 'Philippines', dialCode: '+63', code: 'PH', flag: '🇵🇭'),
+    Country(name: 'Malaysia', dialCode: '+60', code: 'MY', flag: '🇲🇾'),
+    Country(name: 'Singapore', dialCode: '+65', code: 'SG', flag: '🇸🇬'),
+    Country(name: 'Thailand', dialCode: '+66', code: 'TH', flag: '🇹🇭'),
+    Country(name: 'Vietnam', dialCode: '+84', code: 'VN', flag: '🇻🇳'),
+    Country(name: 'New Zealand', dialCode: '+64', code: 'NZ', flag: '🇳🇿'),
+    Country(name: 'Mexico', dialCode: '+52', code: 'MX', flag: '🇲🇽'),
+    Country(name: 'Chile', dialCode: '+56', code: 'CL', flag: '🇨🇱'),
+    Country(name: 'Colombia', dialCode: '+57', code: 'CO', flag: '🇨🇴'),
+    Country(name: 'Peru', dialCode: '+51', code: 'PE', flag: '🇵🇪'),
+    // Add more countries as needed
+  ];
 
   @override
   void initState() {
@@ -262,6 +325,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
         'dial': _selectedDialCode,
+        'countryCode': _selectedCountryCode,
         'university': _universityController.text.trim(),
         'branch': _branchController.text.trim(),
         'adminID': adminID,
@@ -313,7 +377,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).dialogBackgroundColor,
               insetPadding: const EdgeInsets.all(20),
               content: Container(
                 decoration: BoxDecoration(
@@ -326,7 +390,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                       'Admin Agreement',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueGrey[800],
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -334,7 +398,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                       height: 250,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: SingleChildScrollView(
@@ -347,7 +411,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                               '5. Not misuse the system for personal gain\n\n'
                               'Violation of these terms may result in account termination and legal action.',
                           style: TextStyle(
-                            color: Colors.grey[700],
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             height: 1.5,
                           ),
                         ),
@@ -365,10 +429,12 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                           },
                           activeColor: Colors.blueAccent,
                         ),
-                        Text(
-                          'I agree to the admin terms and conditions',
-                          style: TextStyle(
-                            color: Colors.grey[700],
+                        Expanded(
+                          child: Text(
+                            'I agree to the admin terms and conditions',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ],
@@ -429,7 +495,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).dialogBackgroundColor,
           content: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -444,14 +510,14 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                   'Admin Account Created!',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[800],
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 15),
-                const Text(
+                Text(
                   'Your admin account has been successfully created. You can now manage the system.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 25),
                 ElevatedButton(
@@ -496,7 +562,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -564,7 +630,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blueGrey[800],
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -573,17 +639,17 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: Colors.grey[600],
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
                                   _emailForVerification ?? '',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.blue,
+                                    color: Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                                 const SizedBox(height: 30),
@@ -614,7 +680,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                   children: [
                                     Text(
                                       'Didn\'t receive the code? ',
-                                      style: TextStyle(color: Colors.grey[600]),
+                                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                     ),
                                     TextButton(
                                       onPressed: _resendTimer > 0 ? null : _resendVerificationCode,
@@ -625,7 +691,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                         style: TextStyle(
                                           color: _resendTimer > 0
                                               ? Colors.grey
-                                              : Colors.blueAccent,
+                                              : Theme.of(context).colorScheme.primary,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -662,10 +728,10 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                       _resendTimerInstance?.cancel();
                                     });
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     'Change Email',
                                     style: TextStyle(
-                                      color: Colors.blueAccent,
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -731,7 +797,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                   Text(
                                     'Add Admin Profile Photo',
                                     style: TextStyle(
-                                      color: Colors.grey[600],
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                       fontSize: 13,
                                     ),
                                   ),
@@ -780,7 +846,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                             Text(
                               'Admin Phone Number',
                               style: TextStyle(
-                                color: Colors.grey[600],
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -788,30 +854,51 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                             const SizedBox(height: 6),
                             Row(
                               children: [
+                                // Updated dial code dropdown with flags
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey[100],
+                                    color: Theme.of(context).colorScheme.surface,
                                     borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.grey[300]!),
+                                    border: Border.all(color: Theme.of(context).dividerColor),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
                                       value: _selectedDialCode,
-                                      items: <String>['+20', '+1', '+44', '+91']
-                                          .map<DropdownMenuItem<String>>((String value) {
+                                      items: _countries.map<DropdownMenuItem<String>>((Country country) {
                                         return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(value, style: const TextStyle(fontSize: 16)),
+                                          value: country.dialCode,
+                                          child: Row(
+                                            children: [
+                                              Text(country.flag),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                country.dialCode,
+                                                style: TextStyle(
+                                                  color: Theme.of(context).colorScheme.onSurface,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         );
                                       }).toList(),
                                       onChanged: (String? newValue) {
                                         setState(() {
                                           _selectedDialCode = newValue!;
+                                          // Also update the country code
+                                          var country = _countries.firstWhere((c) => c.dialCode == newValue);
+                                          _selectedCountryCode = country.code;
                                         });
                                       },
-                                      icon: const Icon(Icons.arrow_drop_down),
-                                      style: TextStyle(color: Colors.blueGrey[800]),
+                                      icon: Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontSize: 16,
+                                      ),
+                                      dropdownColor: Theme.of(context).colorScheme.surface,
                                     ),
                                   ),
                                 ),
@@ -823,7 +910,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                                     decoration: InputDecoration(
                                       hintText: 'Enter phone number',
                                       filled: true,
-                                      fillColor: Colors.grey[100],
+                                      fillColor: Theme.of(context).colorScheme.surface,
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(10),
                                         borderSide: BorderSide.none,
@@ -875,7 +962,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
                     children: [
                       Text(
                         'Already have an admin account?',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                       TextButton(
                         onPressed: () {
@@ -911,10 +998,10 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
       keyboardType: type,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[600]),
-        prefixIcon: Icon(icon, color: Colors.grey[500]),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
         filled: true,
-        fillColor: Colors.grey[100],
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -936,10 +1023,10 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
       obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[600]),
-        prefixIcon: Icon(icon, color: Colors.grey[500]),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
         filled: true,
-        fillColor: Colors.grey[100],
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -948,7 +1035,7 @@ class _RegisterAdminPageState extends State<RegisterAdminPage> {
         suffixIcon: IconButton(
           icon: Icon(
             obscureText ? Icons.visibility_off : Icons.visibility,
-            color: Colors.grey[500],
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
           ),
           onPressed: onToggle,
         ),

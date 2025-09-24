@@ -95,7 +95,7 @@ class _ApproveRequestsPageState extends State<ApproveRequestsPage>
         backgroundColor: colorScheme.surface,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          color: colorScheme.surfaceVariant.withOpacity(0.05),
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.05),
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _coursesFuture,
             builder: (context, snapshot) {
@@ -390,7 +390,7 @@ class _ShimmerCourseCard extends StatelessWidget {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant,
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
@@ -403,7 +403,7 @@ class _ShimmerCourseCard extends StatelessWidget {
                     width: 160,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant,
+                      color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -412,7 +412,7 @@ class _ShimmerCourseCard extends StatelessWidget {
                     width: 100,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant,
+                      color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -422,7 +422,7 @@ class _ShimmerCourseCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant,
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(40),
               ),
               child: const SizedBox(width: 30, height: 20),
@@ -430,7 +430,7 @@ class _ShimmerCourseCard extends StatelessWidget {
             const SizedBox(width: 12),
             Icon(
               Icons.chevron_right_rounded,
-              color: colorScheme.surfaceVariant,
+              color: colorScheme.surfaceContainerHighest,
               size: 28,
             ),
           ],

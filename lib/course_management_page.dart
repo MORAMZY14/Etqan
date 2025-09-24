@@ -1,10 +1,13 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'course_users_page.dart';
+
+// Add these constants at the top of the file
+const List<String> _categories = ['Development', 'Designing', 'Business', 'Marketing', 'Other'];
 
 class CourseManagementPage extends StatefulWidget {
   const CourseManagementPage({super.key});
@@ -16,7 +19,7 @@ class CourseManagementPage extends StatefulWidget {
 class _CourseManagementPageState extends State<CourseManagementPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-  final ImagePicker _picker = ImagePicker();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -24,6 +27,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -35,7 +44,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: Theme.of(context).colorScheme.onBackground,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -88,7 +97,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
                   final courses = snapshot.data!.docs.where((course) {
                     final name = course['name'].toString().toLowerCase();
-                    return name.contains(_searchQuery.toLowerCase());
+                    final code = course['code']?.toString().toLowerCase() ?? ''; // Handle null code
+                    final category = course['category']?.toString().toLowerCase() ?? ''; // Handle null category
+                    final query = _searchQuery.toLowerCase();
+                    return name.contains(query) || code.contains(query) || category.contains(query);
                   }).toList();
 
                   return ListView.builder(
@@ -134,7 +146,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
         decoration: InputDecoration(
-          hintText: 'Search courses...',
+          hintText: 'Search courses by name, code, or category...',
           prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.outline),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -160,7 +172,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           height: 120,
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Center(child: CircularProgressIndicator()),
@@ -219,7 +231,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         return Container(
                           width: 80,
                           height: 80,
-                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: Icon(Icons.school,
                               size: 40,
                               color: Theme.of(context).colorScheme.primary),
@@ -230,7 +242,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         return Container(
                           width: 80,
                           height: 80,
-                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: const CircularProgressIndicator(),
                         );
                       },
@@ -261,7 +273,35 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         ],
                       ),
 
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
+
+                      // Display course code and category
+                      Row(
+                        children: [
+                          Text(
+                            course['code'] ?? 'No code', // Handle null code
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              course['category'] ?? 'No category', // Handle null category
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 4),
 
                       Text(
                         course['description'] ?? 'No description',
@@ -295,8 +335,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                             ],
                           ),
 
+                          // Updated price display with currency
                           Text(
-                            '${course['price']} SAR',
+                            '${course['price']} ${course['currency']}',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: Theme.of(context).colorScheme.primary
@@ -380,9 +421,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _buildCourseForm(context, isEditing: false);
+        return const _CourseForm(isEditing: false);
       },
-    );
+    ).then((result) async {
+      if (mounted && result != null) {
+        await _handleFormResult(result);
+      }
+    });
   }
 
   void _showEditCourseDialog(DocumentSnapshot course) {
@@ -391,286 +436,119 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _buildCourseForm(context, course: course, isEditing: true);
+        return _CourseForm(isEditing: true, course: course);
       },
-    );
+    ).then((result) async {
+      if (mounted && result != null) {
+        await _handleFormResult(result);
+      }
+    });
   }
 
-  Widget _buildCourseForm(BuildContext context, {DocumentSnapshot? course, bool isEditing = false}) {
-    final nameController = TextEditingController(text: course?['name']);
-    final descriptionController = TextEditingController(text: course?['description']);
-    final statusController = TextEditingController(text: course?['status']);
-    final durationController = TextEditingController(text: course?['duration']);
-    final totalStudentsController = TextEditingController(text: course?['totalStudents']?.toString());
-    final priceController = TextEditingController(text: course?['price']?.toString());
-    File? selectedImage;
+  Future<void> _handleFormResult(Map<String, dynamic> result) async {
+    final isEditing = result['isEditing'] as bool;
+    final courseData = result['courseData'] as Map<String, dynamic>;
+    final imageBytes = result['image'] as Uint8List?;
+    final courseId = result['courseId'] as String?;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 60,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+    try {
+      if (isEditing && courseId != null) {
+        await _updateCourse(
+          courseId,
+          courseData['name'],
+          courseData['code'],
+          courseData['category'],
+          courseData['description'],
+          courseData['content'],
+          courseData['status'],
+          courseData['duration'],
+          courseData['totalStudents'],
+          courseData['price'],
+          courseData['currency'],
+        );
+      } else if (!isEditing && imageBytes != null) {
+        await _addCourse(
+          courseData['name'],
+          courseData['code'],
+          courseData['category'],
+          courseData['description'],
+          courseData['content'],
+          courseData['status'],
+          courseData['duration'],
+          courseData['totalStudents'],
+          courseData['price'],
+          courseData['currency'],
+          imageBytes,
+        );
 
-            Text(
-              isEditing ? 'Edit Course' : 'Create New Course',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Image Picker
-            Center(
-              child: GestureDetector(
-                onTap: () async {
-                  try {
-                    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-                    if (pickedFile != null) {
-                      setState(() {
-                        selectedImage = File(pickedFile.path);
-                      });
-                    }
-                  } catch (e) {
-                    print('Error picking image: $e');
-                  }
-                },
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    shape: BoxShape.circle,
-                  ),
-                  child: selectedImage != null
-                      ? ClipOval(child: Image.file(selectedImage!, fit: BoxFit.cover))
-                      : Icon(Icons.add_a_photo, size: 40,
-                      color: Theme.of(context).colorScheme.outline),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            _buildFormField(
-              controller: nameController,
-              label: 'Course Name',
-              icon: Icons.school,
-              isRequired: true,
-            ),
-
-            _buildFormField(
-              controller: descriptionController,
-              label: 'Description',
-              icon: Icons.description,
-              maxLines: 3,
-            ),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildFormField(
-                    controller: statusController,
-                    label: 'Status',
-                    icon: Icons.circle,
-                    isRequired: true,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildFormField(
-                    controller: durationController,
-                    label: 'Duration',
-                    icon: Icons.schedule,
-                    isRequired: true,
-                  ),
-                ),
-              ],
-            ),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildFormField(
-                    controller: totalStudentsController,
-                    label: 'Total Students',
-                    icon: Icons.people,
-                    keyboardType: TextInputType.number,
-                    isRequired: true,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildFormField(
-                    controller: priceController,
-                    label: 'Price (SAR)',
-                    icon: Icons.attach_money,
-                    keyboardType: TextInputType.number,
-                    isRequired: true,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (nameController.text.isEmpty ||
-                          statusController.text.isEmpty ||
-                          durationController.text.isEmpty ||
-                          totalStudentsController.text.isEmpty ||
-                          priceController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please fill required fields'))
-                        );
-                        return;
-                      }
-
-                      if (isEditing && course != null) {
-                        await _updateCourse(
-                          course.id,
-                          nameController.text,
-                          descriptionController.text,
-                          statusController.text,
-                          durationController.text,
-                          int.tryParse(totalStudentsController.text) ?? 0,
-                          double.tryParse(priceController.text) ?? 0.0,
-                        );
-                      } else {
-                        if (selectedImage == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please select a course image'))
-                          );
-                          return;
-                        }
-
-                        await _addCourse(
-                          nameController.text,
-                          descriptionController.text,
-                          statusController.text,
-                          durationController.text,
-                          int.tryParse(totalStudentsController.text) ?? 0,
-                          double.tryParse(priceController.text) ?? 0.0,
-                          selectedImage!,
-                        );
-                        _showUploadSuccessDialog();
-                      }
-
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(isEditing ? 'Update' : 'Create'),
-                  ),
-                ),
-              ],
-            ),
-             SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFormField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isRequired = false,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: '$label${isRequired ? '*' : ''}',
-          prefixIcon: Icon(icon, size: 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-        ),
-      ),
-    );
+        if (mounted) {
+          _showUploadSuccessDialog();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            )
+        );
+      }
+    }
   }
 
   Future<void> _addCourse(
       String name,
+      String code,
+      String category,
       String description,
+      String content,
       String status,
       String duration,
       int totalStudents,
       double price,
-      File imageFile,
+      String currency,
+      Uint8List imageBytes,
       ) async {
     try {
       final courseId = name;
-      final newCourseRef = _firestore.collection('Courses').doc(courseId);
+      final currentUserEmail = _auth.currentUser!.email!;
 
-      await newCourseRef.set({
+      await _firestore.collection('Courses').doc(courseId).set({
         'name': name,
+        'code': code,
+        'category': category,
         'description': description,
+        'content': content,
         'status': status,
         'duration': duration,
         'totalStudents': totalStudents,
         'price': price,
+        'currency': currency,
+        // New fields
+        'instructor': currentUserEmail,
+        'new': true,
+        'popular': false,
+        'pendingSince': {}, // Empty map
+        'PendingStudent': {}, // Empty map
+        'signedUsers': {
+          'status': status,
+          'totalStudents': totalStudents,
+        },
       });
 
       final imageRef = _storage.ref('courses/$courseId/$courseId.png');
-      await imageRef.putFile(imageFile);
-      await imageRef.getDownloadURL();
+      await imageRef.putData(imageBytes);
     } catch (e) {
       print('Error adding course: $e');
+      rethrow;
     }
   }
 
   void _showUploadSuccessDialog() {
+    // FIX: Check if widget is still mounted
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -704,53 +582,514 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   Future<void> _updateCourse(
       String courseId,
       String name,
+      String code,
+      String category,
       String description,
+      String content,
       String status,
       String duration,
       int totalStudents,
       double price,
+      String currency,
       ) async {
     try {
-      await _firestore.collection('Courses').doc(courseId).update({
+      final updateData = {
         'name': name,
         'description': description,
+        'content': content,
         'status': status,
         'duration': duration,
         'totalStudents': totalStudents,
         'price': price,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name updated successfully'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          )
-      );
+        'currency': currency,
+        'signedUsers.status': status,
+        'signedUsers.totalStudents': totalStudents,
+      };
+
+      // Only add code and category if they're not empty
+      if (code.isNotEmpty) updateData['code'] = code;
+      if (category.isNotEmpty) updateData['category'] = category;
+
+      await _firestore.collection('Courses').doc(courseId).update(updateData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$name updated successfully'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating course: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          )
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating course: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            )
+        );
+      }
     }
   }
 
   Future<void> _deleteCourse(String courseId) async {
     try {
       await _firestore.collection('Courses').doc(courseId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Course deleted successfully'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          )
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Course deleted successfully'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting course: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          )
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting course: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            )
+        );
+      }
     }
+  }
+}
+
+class _CourseForm extends StatefulWidget {
+  final bool isEditing;
+  final DocumentSnapshot? course;
+
+  const _CourseForm({required this.isEditing, this.course});
+
+  @override
+  __CourseFormState createState() => __CourseFormState();
+}
+
+class __CourseFormState extends State<_CourseForm> {
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _contentController;
+  late TextEditingController _statusController;
+  late TextEditingController _durationController;
+  late TextEditingController _totalStudentsController;
+  late TextEditingController _priceController;
+  late TextEditingController _codeController;
+  Uint8List? _imageBytes;
+  final ImagePicker _picker = ImagePicker();
+
+  String _selectedCurrency = 'SAR';
+  String _selectedCategory = 'Development';
+  final List<String> _currencies = ['EGP', 'SAR', 'USD'];
+  final String _instructorEmail = FirebaseAuth.instance.currentUser?.email ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.course?['name']);
+    _descriptionController = TextEditingController(text: widget.course?['description']);
+    _contentController = TextEditingController(text: widget.course?['content'] ?? '');
+    _statusController = TextEditingController(text: widget.course?['status']);
+    _durationController = TextEditingController(text: widget.course?['duration']);
+    _totalStudentsController = TextEditingController(
+        text: widget.course?['totalStudents']?.toString());
+    _priceController = TextEditingController(text: widget.course?['price']?.toString());
+    _codeController = TextEditingController(text: widget.course?['code'] ?? ''); // Handle null code
+    _selectedCurrency = widget.course?['currency'] ?? 'SAR';
+    _selectedCategory = widget.course?['category'] ?? 'Development'; // Handle null category
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _contentController.dispose();
+    _statusController.dispose();
+    _durationController.dispose();
+    _totalStudentsController.dispose();
+    _priceController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        // FIX: Check if widget is still mounted before updating state
+        if (mounted) {
+          setState(() {
+            _imageBytes = bytes;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+    }
+  }
+
+  Widget _buildFormField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isRequired = false,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: '$label${isRequired ? '*' : ''}',
+          prefixIcon: Icon(icon, size: 20),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructorField() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        initialValue: _instructorEmail,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: 'Instructor',
+          prefixIcon: const Icon(Icons.person, size: 20),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrencyDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedCurrency,
+          isExpanded: true,
+          icon: Icon(Icons.arrow_drop_down,
+              color: Theme.of(context).colorScheme.primary),
+          items: _currencies.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() {
+                _selectedCurrency = newValue;
+              });
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Category*',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedCategory,
+                isExpanded: true,
+                icon: Icon(Icons.arrow_drop_down,
+                    color: Theme.of(context).colorScheme.primary),
+                items: _categories.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedCategory = newValue;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 60,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            Text(
+              widget.isEditing ? 'Edit Course' : 'Create New Course',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Image Picker
+            Center(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _imageBytes != null
+                      ? ClipOval(child: Image.memory(_imageBytes!, fit: BoxFit.cover))
+                      : Icon(Icons.add_a_photo, size: 40,
+                      color: Theme.of(context).colorScheme.outline),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            _buildFormField(
+              controller: _nameController,
+              label: 'Course Name',
+              icon: Icons.school,
+              isRequired: true,
+            ),
+
+            _buildFormField(
+              controller: _codeController,
+              label: 'Course Code',
+              icon: Icons.code,
+              isRequired: true,
+            ),
+
+            _buildCategoryDropdown(),
+
+            _buildFormField(
+              controller: _descriptionController,
+              label: 'Description',
+              icon: Icons.description,
+              maxLines: 3,
+            ),
+
+            // Content Field
+            _buildFormField(
+              controller: _contentController,
+              label: 'Course Content',
+              icon: Icons.library_books,
+              maxLines: 5,
+            ),
+
+            // Instructor Field
+            _buildInstructorField(),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildFormField(
+                    controller: _statusController,
+                    label: 'Status',
+                    icon: Icons.circle,
+                    isRequired: true,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFormField(
+                    controller: _durationController,
+                    label: 'Duration',
+                    icon: Icons.schedule,
+                    isRequired: true,
+                  ),
+                ),
+              ],
+            ),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildFormField(
+                    controller: _totalStudentsController,
+                    label: 'Total Students',
+                    icon: Icons.people,
+                    keyboardType: TextInputType.number,
+                    isRequired: true,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Price*',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: _buildFormField(
+                              controller: _priceController,
+                              label: '',
+                              icon: Icons.attach_money,
+                              keyboardType: TextInputType.number,
+                              isRequired: true,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 1,
+                            child: _buildCurrencyDropdown(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_nameController.text.isEmpty ||
+                          _codeController.text.isEmpty ||
+                          _statusController.text.isEmpty ||
+                          _durationController.text.isEmpty ||
+                          _totalStudentsController.text.isEmpty ||
+                          _priceController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please fill required fields'))
+                        );
+                        return;
+                      }
+
+                      if (!widget.isEditing && _imageBytes == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select a course image'))
+                        );
+                        return;
+                      }
+
+                      final courseData = {
+                        'name': _nameController.text,
+                        'code': _codeController.text,
+                        'category': _selectedCategory,
+                        'description': _descriptionController.text,
+                        'content': _contentController.text,
+                        'status': _statusController.text,
+                        'duration': _durationController.text,
+                        'totalStudents': int.tryParse(_totalStudentsController.text) ?? 0,
+                        'price': double.tryParse(_priceController.text) ?? 0.0,
+                        'currency': _selectedCurrency,
+                      };
+
+                      Navigator.pop(context, {
+                        'isEditing': widget.isEditing,
+                        'courseId': widget.course?.id,
+                        'courseData': courseData,
+                        'image': _imageBytes,
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(widget.isEditing ? 'Update' : 'Create'),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+          ],
+        ),
+      ),
+    );
   }
 }

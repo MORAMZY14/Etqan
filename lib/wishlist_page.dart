@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,27 +23,26 @@ class _WishlistPageState extends State<WishlistPage> {
   Uint8List? _paymentScreenshotBytes;
   String _paymentLink = '';
   bool _isLoading = false;
+  bool _isProcessing = false;
   Timer? _loadingTimer;
   bool _dialogShown = false;
+
+  // Currency handling variables
+  List<Map<String, dynamic>> _allCourses = [];
+  double _totalCost = 0.0;
+  Map<String, double> _currencyTotals = {};
 
   @override
   void initState() {
     super.initState();
     _isLoading = true;
-    _coursesFuture = _fetchCourses();
+    _coursesFuture = _fetchCourses().then((courses) {
+      _allCourses = courses;
+      return courses;
+    });
     _fetchPaymentLink();
 
-    // Set timeout for loading dialog
-    _loadingTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && _isLoading) {
-        setState(() => _isLoading = false);
-        if (_dialogShown) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-      }
-    });
-
-    // Show loading dialog after frame is rendered
+    // Show loading dialog immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _isLoading) {
         _showLoadingDialog();
@@ -53,6 +51,8 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   void _showLoadingDialog() {
+    if (_dialogShown) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -102,16 +102,18 @@ class _WishlistPageState extends State<WishlistPage> {
         if (registeredCourses.contains(courseName)) continue;
 
         final imageUrl = await _getCourseImageUrl(courseName);
-        final coursePrice = doc.data()?['price'] ?? 0;
+        final coursePrice = doc.data()['price'] ?? 0;
+        final currencyCode = doc.data()['currency'] ?? 'USD';
 
         result.add({
           'name': courseName,
           'imageUrl': imageUrl,
           'price': coursePrice,
+          'currency': currencyCode,
         });
       }
 
-      // Close loading if data arrives before timeout
+      // Close loading if data arrives
       if (mounted && _isLoading) {
         setState(() => _isLoading = false);
         if (_dialogShown) Navigator.of(context, rootNavigator: true).pop();
@@ -147,69 +149,166 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   void _showPaymentDialog() {
+    // Calculate selected courses with prices and currency totals
+    final selectedCourses = _allCourses.where(
+          (course) => _selectedCourses.contains(course['name']),
+    ).toList();
+
+    // Reset totals
+    _totalCost = 0.0;
+    _currencyTotals = {};
+
+    // Calculate per-currency totals
+    for (final course in selectedCourses) {
+      final currency = course['currency'] ?? 'USD';
+      final price = (course['price'] as num).toDouble();
+
+      _currencyTotals[currency] = (_currencyTotals[currency] ?? 0.0) + price;
+      _totalCost += price;
+    }
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.payment, size: 48, color: Colors.blue),
-              const SizedBox(height: 16),
-              const Text(
-                'Payment Required',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Complete your payment using the link below:',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.payment, size: 48, color: Colors.blue),
+                const SizedBox(height: 16),
+                const Text(
+                  'Payment Summary',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                child: SelectableText(
-                  _paymentLink,
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showScreenshotUploadDialog();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 24),
+
+                // Course list and prices
+                ...selectedCourses.map((course) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          course['name'],
+                          style: const TextStyle(fontSize: 16),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                    ),
-                    child: const Text('Continue',
-                        style: TextStyle(color: Colors.white)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${course['price'].toStringAsFixed(2)} ${course['currency']}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                )),
+
+                const SizedBox(height: 16),
+
+                // Per-currency totals
+                ..._currencyTotals.entries.map((entry) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total (${entry.key}):',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      Text(
+                        '${entry.value.toStringAsFixed(2)} ${entry.key}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+
+                // Divider and total
+                const Divider(thickness: 1.5, height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Grand Total:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      _totalCost.toStringAsFixed(2),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Payment instructions
+                const Text(
+                  'Complete your payment using the link below:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SelectableText(
+                    _paymentLink,
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showScreenshotUploadDialog();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Continue',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -336,8 +435,31 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   void _registerCourses() async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
     final user = _auth.currentUser;
-    if (user == null || _paymentScreenshotBytes == null) return;
+    if (user == null || _paymentScreenshotBytes == null) {
+      setState(() => _isProcessing = false);
+      return;
+    }
+
+    // Show processing dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Processing registration...'),
+          ],
+        ),
+      ),
+    );
 
     final userEmail = user.email!;
     final registrationDate = DateTime.now();
@@ -364,6 +486,12 @@ class _WishlistPageState extends State<WishlistPage> {
       });
 
       for (final courseName in _selectedCourses) {
+        // Get course details
+        final course = _allCourses.firstWhere(
+              (c) => c['name'] == courseName,
+          orElse: () => {'price': 0, 'currency': 'USD'},
+        );
+
         // Create unique document ID: email + course name
         final registrationId = '${userEmail}_$courseName';
 
@@ -378,6 +506,8 @@ class _WishlistPageState extends State<WishlistPage> {
           'registrationDate': registrationDate,
           'paymentScreenshot': downloadUrl,
           'status': 'pending',
+          'price': course['price'],
+          'currency': course['currency'],
           'timestamp': FieldValue.serverTimestamp(),
         });
         // =======================================
@@ -405,11 +535,13 @@ class _WishlistPageState extends State<WishlistPage> {
           'studentID': studentID,
           'courseName': courseName,
           'courseNumber': courseNumber,
+          'price': course['price'],
+          'currency': course['currency'],
           'timestamp': registrationDate,
           'paymentScreenshot': downloadUrl,
           'status': 'pending',
           'registeredAt': FieldValue.serverTimestamp(),
-          'registrationId': registrationId,  // Link to parent registration
+          'registrationId': registrationId,
         });
 
         // Add to course's pending list
@@ -435,22 +567,53 @@ class _WishlistPageState extends State<WishlistPage> {
         });
       }
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Confirmation email will arrive shortly.')),
-        );
-      }
+      // Close processing dialog
+      Navigator.of(context, rootNavigator: true).pop();
 
-      // Reset state and refresh
-      setState(() {
-        _selectedCourses.clear();
-        _paymentScreenshotBytes = null;
-        _coursesFuture = _fetchCourses();
+      // Show success dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Success'),
+          content: const Text('Registration successful! Confirmation email will arrive shortly.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ).then((_) {
+        // Refresh page after dialog is closed
+        setState(() {
+          _selectedCourses.clear();
+          _paymentScreenshotBytes = null;
+          _isProcessing = false;
+          _coursesFuture = _fetchCourses();
+        });
       });
     } catch (e) {
+      // Close processing dialog
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() => _isProcessing = false);
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text('Registration failed: ${e.toString()}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     }
@@ -466,7 +629,7 @@ class _WishlistPageState extends State<WishlistPage> {
         elevation: 0,
       ),
       body: _isLoading
-          ? Container() // Empty while dialog shows
+          ? const Center(child: CircularProgressIndicator())
           : FutureBuilder<List<Map<String, dynamic>>>(
         future: _coursesFuture,
         builder: (context, snapshot) {
@@ -504,6 +667,7 @@ class _WishlistPageState extends State<WishlistPage> {
                 final courseName = course['name'] ?? 'Unknown Course';
                 final courseImageUrl = course['imageUrl'] ?? '';
                 final coursePrice = course['price'] ?? 0;
+                final courseCurrency = course['currency'] ?? 'USD';
                 final isSelected = _selectedCourses.contains(courseName);
 
                 return GestureDetector(
@@ -562,13 +726,18 @@ class _WishlistPageState extends State<WishlistPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    '\$${coursePrice.toString()}',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade700,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${coursePrice.toStringAsFixed(2)} $courseCurrency',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade700,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

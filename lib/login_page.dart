@@ -595,6 +595,9 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: obscureText,
       keyboardType: keyboardType,
       style: const TextStyle(color: Colors.white),
+      autofillHints: null,        // 👈 disables iOS/Android autofill suggestions
+      enableSuggestions: false,   // 👈 disables predictive suggestions
+      autocorrect: false,         // 👈 disables autocorrect
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(color: Colors.white54),
@@ -619,6 +622,7 @@ class _LoginPageState extends State<LoginPage> {
           horizontal: 20,
         ),
       ),
-    );
+    )
+    ;
   }
 }

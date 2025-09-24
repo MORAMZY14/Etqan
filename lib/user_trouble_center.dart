@@ -28,7 +28,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> with SingleTickerProvid
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   bool _isSubmitting = false;
-  List<PlatformFile> _attachments = [];
+  final List<PlatformFile> _attachments = [];
   String? _selectedCategory = 'Technical Issue';
   List<QueryDocumentSnapshot> _userTickets = [];
   bool _isLoadingTickets = true;
@@ -462,7 +462,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> with SingleTickerProvid
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
             const SizedBox(height: 30),
@@ -922,7 +922,7 @@ class _UserTicketDetailPageState extends State<UserTicketDetailPage> {
                           ],
                         ),
                       ),
-                    )).toList(),
+                    )),
                     const SizedBox(height: 20),
                   ],
 
@@ -1052,7 +1052,7 @@ class _UserTicketDetailPageState extends State<UserTicketDetailPage> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),

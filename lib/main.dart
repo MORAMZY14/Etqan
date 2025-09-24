@@ -11,18 +11,39 @@ import 'register_page.dart';
 import 'tour_page.dart';
 import 'about_page.dart';
 import 'user_page.dart';
-import 'package:flutter/rendering.dart';
+
+// Add window_manager for desktop window control
+import 'package:window_manager/window_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager for desktop platforms
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.macOS)) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(600, 900),
+      minimumSize: Size(600, 900),
+      maximumSize: Size(600, 900),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     runApp(MyApp(homePage: await getInitialPage()));
   } catch (e) {
     print('Error initializing Firebase: $e');
@@ -38,7 +59,7 @@ Future<Widget> getInitialPage() async {
       return UserPage(email: email);
     }
   }
-  return MyHomePage();
+  return const MyHomePage();
 }
 
 class MyApp extends StatefulWidget {
@@ -51,7 +72,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  ThemeMode _themeMode = ThemeMode.light; // Default to light mode
+  ThemeMode _themeMode = ThemeMode.light;
 
   @override
   void initState() {
@@ -61,7 +82,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _updateSystemUIOverlayStyle();
   }
 
-  // Load saved theme mode from preferences
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getString('themeMode');
@@ -74,7 +94,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
   }
 
-  // Change theme mode and save preference
   void _changeThemeMode(ThemeMode mode) async {
     setState(() => _themeMode = mode);
     final prefs = await SharedPreferences.getInstance();
@@ -111,7 +130,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      themeMode: _themeMode, // Use managed theme mode
+      themeMode: _themeMode,
       home: widget.homePage,
     );
   }
@@ -147,11 +166,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   bool _isLoading = true;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  bool _isTargetUrl = false;
 
   @override
   void initState() {
     super.initState();
     fetchDataFromFirestore();
+    _checkUrl();
 
     _animationController = AnimationController(
       vsync: this,
@@ -164,6 +185,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         curve: Curves.easeOut,
       ),
     );
+  }
+
+  void _checkUrl() {
+    if (kIsWeb) {
+      final currentUri = Uri.base;
+      _isTargetUrl = currentUri.host == 'etqan-center.web.app' && currentUri.path == '/';
+    }
   }
 
   @override
@@ -188,7 +216,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _showPasswordDialog() async {
+  void _showPasswordDialog() async {
     final TextEditingController passwordController = TextEditingController();
     String? adminPassword;
 
@@ -360,10 +388,47 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
   }
 
+  void _showSaveAppInstructions(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save App to Home Screen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('To save this app for quick access:'),
+            const SizedBox(height: 16),
+            _buildInstructionStep('1. Tap the menu button (three dots)', Icons.more_vert),
+            const SizedBox(height: 8),
+            _buildInstructionStep('2. Tap "Add to Home Screen"', Icons.add_box_outlined),
+            const SizedBox(height: 8),
+            _buildInstructionStep('3. Confirm the installation', Icons.check_circle),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionStep(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Text(text),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -374,169 +439,190 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             end: Alignment.bottomCenter,
             colors: [
               colorScheme.surface,
-              colorScheme.surfaceVariant,
+              colorScheme.surfaceContainerHighest,
             ],
           ),
         ),
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with theme toggle
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, Guest',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Explore the application features',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Dark Mode Toggle Button
-                    IconButton(
-                      icon: Icon(
-                        isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                        color: colorScheme.primary,
-                      ),
-                      onPressed: () {
-                        final appState = context.findAncestorStateOfType<_MyAppState>();
-                        if (appState != null) {
-                          final newMode = isDarkMode ? ThemeMode.light : ThemeMode.dark;
-                          appState._changeThemeMode(newMode);
-                        }
-                      },
-                      tooltip: isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
-                    ),
-                  ],
-                ),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height,
               ),
-
-              // Feature Grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 3,
-                  childAspectRatio: 1.0,
-                  padding: const EdgeInsets.all(8),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  children: [
-                    _buildFeatureCard(
-                      context,
-                      Icons.login,
-                      'Login',
-                      const LoginPage(),
-                      colorScheme.primaryContainer,
-                      '/login',
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      Icons.tour,
-                      'Tour',
-                      const TourPage(),
-                      colorScheme.secondaryContainer,
-                      '/tour',
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      Icons.app_registration,
-                      'Register',
-                      const RegisterPage(),
-                      colorScheme.tertiaryContainer,
-                      '/register',
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      Icons.admin_panel_settings,
-                      'Admin',
-                      null,
-                      colorScheme.errorContainer,
-                      '/admin',
-                    ),
-                    _buildFeatureCard(
-                      context,
-                      Icons.info_outline,
-                      'About',
-                      const AboutPage(),
-                      colorScheme.primaryContainer,
-                      '/about',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Announcements Section
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Announcements',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with theme toggle
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome, Guest',
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Explore the application features',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
                           ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () {
-                              setState(() => _isLoading = true);
-                              fetchDataFromFirestore();
-                            },
-                            tooltip: 'Refresh',
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.9),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : RefreshIndicator(
-                          onRefresh: fetchDataFromFirestore,
-                          child: items.isEmpty
+                        // Dark Mode Toggle Button
+                        IconButton(
+                          icon: Icon(
+                            isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            color: colorScheme.primary,
+                          ),
+                          onPressed: () {
+                            final appState = context.findAncestorStateOfType<_MyAppState>();
+                            if (appState != null) {
+                              final newMode = isDarkMode ? ThemeMode.light : ThemeMode.dark;
+                              appState._changeThemeMode(newMode);
+                            }
+                          },
+                          tooltip: isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Feature Grid
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.0,
+                      padding: const EdgeInsets.all(8),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      children: [
+                        _buildFeatureCard(
+                          context,
+                          Icons.login,
+                          'Login',
+                          const LoginPage(),
+                          colorScheme.primaryContainer,
+                          '/login',
+                        ),
+                        _buildFeatureCard(
+                          context,
+                          Icons.tour,
+                          'Tour',
+                          const TourPage(),
+                          colorScheme.secondaryContainer,
+                          '/tour',
+                        ),
+                        _buildFeatureCard(
+                          context,
+                          Icons.app_registration,
+                          'Register',
+                          const RegisterPage(),
+                          colorScheme.tertiaryContainer,
+                          '/register',
+                        ),
+                        if (!_isTargetUrl) // Only show Admin card if not on target URL
+                          _buildFeatureCard(
+                            context,
+                            Icons.admin_panel_settings,
+                            'Admin',
+                            null,
+                            colorScheme.errorContainer,
+                            '/admin',
+                          ),
+                        _buildFeatureCard(
+                          context,
+                          Icons.info_outline,
+                          'About',
+                          const AboutPage(),
+                          colorScheme.primaryContainer,
+                          '/about',
+                        ),
+                        if (kIsWeb) // Only show Save App card on web
+                          _buildFeatureCard(
+                            context,
+                            Icons.save,
+                            'Save App',
+                            null,
+                            colorScheme.secondaryContainer,
+                            '/save',
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Announcements Section
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Announcements',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () {
+                                  setState(() => _isLoading = true);
+                                  fetchDataFromFirestore();
+                                },
+                                tooltip: 'Refresh',
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.9),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: _isLoading
+                              ? const Center(child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CircularProgressIndicator(),
+                          ))
+                              : items.isEmpty
                               ? Center(
-                            child: Text(
-                              'No announcements yet',
-                              style: Theme.of(context).textTheme.bodyLarge,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'No announcements yet',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
                             ),
                           )
                               : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             itemCount: items.length,
                             itemBuilder: (context, index) {
@@ -548,12 +634,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             },
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -584,6 +670,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 _navigateToPage(targetPage, routeName);
               } else if (label == 'Admin') {
                 _showPasswordDialog();
+              } else if (label == 'Save App') {
+                _showSaveAppInstructions(context);
               }
             });
           },

@@ -37,10 +37,15 @@ dependencies:
   device_installed_apps: ^1.0.1
   android_intent: ^2.0.2
   google_fonts: ^4.0.3
+  window_manager: ^0.3.3
+  pwa_install: ^0.0.5
+  cached_network_image: ^3.3.0
 
 
 
 
+
+  intl: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

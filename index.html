@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <title>Etqan Center</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS specific meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Etqan Center">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+    <style>
+        /* Critical CSS inlined to prevent render-blocking */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #000000;
+            }
+        }
+
+        #splash {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+
+            #splash img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+
+        .loading::after {
+            content: "";
+            position: absolute;
+            bottom: 20%;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top-color: #6C63FF;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* iOS install instructions modal */
+        #ios-install-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        #ios-install-modal .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            max-width: 85%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        #ios-install-modal h2 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        #ios-install-modal ol {
+            text-align: left;
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        #ios-install-modal li {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        #ios-install-modal button {
+            margin-top: 15px;
+            padding: 12px 24px;
+            background: #6C63FF;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .ios-share-icon {
+            display: inline-block;
+            font-size: 24px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+    </style>
+    <script>
+        let deferredPrompt = null;
+        let pwaInstallAvailableCallback = null;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (pwaInstallAvailableCallback) {
+                pwaInstallAvailableCallback();
+            }
+        });
+
+        // Detect if on iOS and not already installed
+        if (isIOS && !window.navigator.standalone) {
+            window.addEventListener('load', () => {
+                // iOS doesn't fire beforeinstallprompt, so we manually trigger availability
+                if (pwaInstallAvailableCallback) {
+                    setTimeout(() => pwaInstallAvailableCallback(), 1000);
+                }
+            });
+        }
+
+        function setPWAInstallAvailableCallback(callback) {
+            pwaInstallAvailableCallback = callback;
+            if (deferredPrompt) {
+                callback();
+            }
+        }
+
+        function showInstallPrompt() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            } else if (isIOS) {
+                // For iOS, show custom instructions
+                showIOSInstallInstructions();
+            }
+        }
+
+        function isPWAInstallAvailable() {
+            return deferredPrompt !== null || (isIOS && !window.navigator.standalone);
+        }
+
+        function isIOSDevice() {
+            return isIOS;
+        }
+
+        function showIOSInstallInstructions() {
+            const modal = document.getElementById('ios-install-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeIOSInstallInstructions() {
+            const modal = document.getElementById('ios-install-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <picture id="splash">
+        <source srcset="splash/img/light-1x.png 1x,
+                    splash/img/light-2x.png 2x,
+                    splash/img/light-3x.png 3x,
+                    splash/img/light-4x.png 4x"
+                media="(prefers-color-scheme: light)">
+        <source srcset="splash/img/dark-1x.png 1x,
+                    splash/img/dark-2x.png 2x,
+                    splash/img/dark-3x.png 3x,
+                    splash/img/dark-4x.png 4x"
+                media="(prefers-color-scheme: dark)">
+        <img src="splash/img/light-1x.png"
+             alt="Etqan Center Loading"
+             decoding="async"
+             loading="eager">
+    </picture>
+
+    <!-- iOS install instructions modal -->
+    <div id="ios-install-modal">
+        <div class="modal-content">
+            <h2>Add to Home Screen</h2>
+            <p>To install Etqan Center on your iPhone:</p>
+            <ol>
+                <li>Tap the <span class="ios-share-icon">⎋</span> Share button at the bottom of the screen</li>
+                <li>Scroll down and tap "Add to Home Screen"</li>
+                <li>Tap "Add" in the top right corner</li>
+            </ol>
+            <button onclick="closeIOSInstallInstructions()">Got It</button>
+        </div>
+    </div>
+
+    <script>
+        // Add loading class to body when resources are loading
+        document.body.classList.add('loading');
+
+        // Preload critical resources
+        const preloadResources = () => {
+            const resources = [
+                'flutter.js',
+                'main.dart.js'
+            ];
+
+            resources.forEach(res => {
+                const link = document.createElement('link');
+                link.rel = 'preload';
+                link.as = 'script';
+                link.href = res;
+                document.head.appendChild(link);
+            });
+        };
+
+        // Initialize after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            preloadResources();
+
+            // Load Flutter scripts
+            const loadScript = (src) => new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.defer = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+
+            Promise.all([
+                loadScript('flutter.js'),
+                loadScript('main.dart.js')
+            ]).then(() => {
+                document.body.classList.remove('loading');
+            }).catch(error => {
+                console.error('Resource loading error:', error);
+                // Fallback handling
+            });
+        });
+    </script>
+</body>
+</html>
