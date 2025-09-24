@@ -21,17 +21,6 @@ jobs:
       - name: Get Flutter path
         run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
 
-      - name: Force iOS deployment target to 13.0
-        run: |
-          cd ios
-          if grep -q "platform :ios" Podfile; then
-            sed -i '' "s/platform :ios.*/platform :ios, '13.0'/" Podfile
-          else
-            echo "platform :ios, '13.0'" >> Podfile
-          fi
-          echo "Updated Podfile deployment target:"
-          grep "platform :ios" Podfile
-
       - name: Resolve Flutter dependencies
         run: flutter pub get
 
