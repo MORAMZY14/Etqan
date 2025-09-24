@@ -24,13 +24,20 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Get Flutter dependencies (after cleaning)
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      # Optional: remove this step, flutter build ios runs pod install automatically
-      # - name: Install CocoaPods
-      #   run: pod install
-      #   working-directory: ios
+      - name: Ensure iOS Deployment Target is 15.0
+        run: |
+          cd ios
+          sed -i '' "s/platform :ios, '[0-9]\+.[0-9]\+'/platform :ios, '15.0'/" Podfile
+          cd ..
 
       - name: Build iOS app (Release)
         run: flutter build ios --release --no-codesign
