@@ -26,13 +26,13 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Changed to dynamic frameworks for Firebase compatibility
+  # Dynamic frameworks for Firebase compatibility
   use_frameworks! :linkage => :dynamic
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # Explicitly declare Firebase pods with compatible versions
+  # Explicit Firebase versions
   pod 'FirebaseCore', '10.22.0'
   pod 'FirebaseAuth', '10.22.0'
   pod 'FirebaseFirestore', '10.22.0'
@@ -47,25 +47,20 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     target.build_configurations.each do |config|
-      # Set minimum Swift version to 5.9
+      # ✅ Force iOS 13.0 for all pods
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+
+      # Swift / Firebase compatibility
       config.build_settings['SWIFT_VERSION'] = '5.9'
-      
-      # Add Swift standard libraries
       config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-      
-      # Enable library evolution
       config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      
-      # Compatibility settings
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
-      
-      # Workaround for Xcode 14.3 compatibility
       config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
     end
   end
-  
-  # Workaround for FirebaseSharedSwift issues
+
+  # FirebaseSharedSwift workaround
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
   end
