@@ -41,9 +41,10 @@ jobs:
           echo "Modified Podfile:"
           cat Podfile
 
-      - name: Force iOS deployment target to 13.0
+      - name: Force iOS deployment target to 13.0 (Podfile + Xcode project)
         run: |
           cd ios
+          # Ensure Podfile has platform set
           if grep -q "platform :ios" Podfile; then
             sed -i '' "s/platform :ios.*/platform :ios, '13.0'/" Podfile
           else
@@ -51,6 +52,9 @@ jobs:
           fi
           echo "Updated Podfile deployment target:"
           grep "platform :ios" Podfile
+          
+          # Also update Xcode project files
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 13.0/" Runner.xcodeproj/project.pbxproj
 
       - name: Update FlutterFire dependencies
         run: |
