@@ -60,12 +60,6 @@
 @import flutter_contacts;
 #endif
 
-#if __has_include(<flutter_native_splash/FlutterNativeSplashPlugin.h>)
-#import <flutter_native_splash/FlutterNativeSplashPlugin.h>
-#else
-@import flutter_native_splash;
-#endif
-
 #if __has_include(<image_picker_ios/FLTImagePickerPlugin.h>)
 #import <image_picker_ios/FLTImagePickerPlugin.h>
 #else
@@ -102,6 +96,12 @@
 @import shared_preferences_foundation;
 #endif
 
+#if __has_include(<sqflite_darwin/SqflitePlugin.h>)
+#import <sqflite_darwin/SqflitePlugin.h>
+#else
+@import sqflite_darwin;
+#endif
+
 #if __has_include(<url_launcher_ios/URLLauncherPlugin.h>)
 #import <url_launcher_ios/URLLauncherPlugin.h>
 #else
@@ -120,13 +120,13 @@
   [FLTFirebaseMessagingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseMessagingPlugin"]];
   [FLTFirebaseStoragePlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseStoragePlugin"]];
   [FlutterContactsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterContactsPlugin"]];
-  [FlutterNativeSplashPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterNativeSplashPlugin"]];
   [FLTImagePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTImagePickerPlugin"]];
   [FLTLibphonenumberPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTLibphonenumberPlugin"]];
   [OneSignalPlugin registerWithRegistrar:[registry registrarForPlugin:@"OneSignalPlugin"]];
   [PathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"PathProviderPlugin"]];
   [PermissionHandlerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PermissionHandlerPlugin"]];
   [SharedPreferencesPlugin registerWithRegistrar:[registry registrarForPlugin:@"SharedPreferencesPlugin"]];
+  [SqflitePlugin registerWithRegistrar:[registry registrarForPlugin:@"SqflitePlugin"]];
   [URLLauncherPlugin registerWithRegistrar:[registry registrarForPlugin:@"URLLauncherPlugin"]];
 }
 
