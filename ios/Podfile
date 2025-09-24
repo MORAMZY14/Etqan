@@ -33,12 +33,12 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
   # Explicitly declare Firebase pods with compatible versions
-  pod 'FirebaseCore', '10.22.0'
-  pod 'FirebaseAuth', '10.22.0'
-  pod 'FirebaseFirestore', '10.22.0'
-  pod 'FirebaseStorage', '10.22.0'
-  pod 'FirebaseFunctions', '10.22.0'
-  pod 'FirebaseSharedSwift', '10.22.0'
+  pod 'FirebaseCore', '11.10.0'
+  pod 'FirebaseAuth', '11.10.0'
+  pod 'FirebaseFirestore', '11.10.0'
+  pod 'FirebaseStorage', '11.10.0'
+  pod 'FirebaseFunctions', '11.10.0'
+  pod 'FirebaseSharedSwift', '11.10.0'
   pod 'GTMSessionFetcher/Core', '2.1.0'
 end
 
