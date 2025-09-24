@@ -24,12 +24,6 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install --repo-update
-          cd ..
-
       - name: Get Flutter dependencies
         run: flutter pub get
 
@@ -37,6 +31,12 @@ jobs:
         run: |
           cd ios
           sed -i '' "s/platform :ios, '[0-9]\+.[0-9]\+'/platform :ios, '15.0'/" Podfile
+          cd ..
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
           cd ..
 
       - name: Build iOS app (Release)
