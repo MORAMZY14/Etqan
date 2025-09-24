@@ -41,6 +41,17 @@ jobs:
           echo "Modified Podfile:"
           cat Podfile
 
+      - name: Force iOS deployment target to 13.0
+        run: |
+          cd ios
+          if grep -q "platform :ios" Podfile; then
+            sed -i '' "s/platform :ios.*/platform :ios, '13.0'/" Podfile
+          else
+            echo "platform :ios, '13.0'" >> Podfile
+          fi
+          echo "Updated Podfile deployment target:"
+          grep "platform :ios" Podfile
+
       - name: Update FlutterFire dependencies
         run: |
           # Use minimum version constraints
@@ -79,4 +90,3 @@ jobs:
           file: build/ios/iphoneos/Etqan.ipa
           tag: ${{ github.ref_name }}
           overwrite: true
-          
