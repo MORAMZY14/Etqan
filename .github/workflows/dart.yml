@@ -1,85 +1,73 @@
-name: Build Flutter App
+name: Flutter Build & Release
 
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 jobs:
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.4' # same version you are using
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Clean build
-        run: flutter clean
-
-      - name: Build APK (release)
-        run: flutter build apk --release
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-  build-ios:
+  build:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout repository
+      # Checkout project
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Ruby (for CocoaPods)
-        uses: ruby/setup-ruby@v1
+      # Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          ruby-version: '3.3'
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
 
-      - name: Set up Java
+      # Setup Java for Android
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.4'
+      # Setup CocoaPods
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
 
-      - name: Install dependencies
+      # Get Flutter dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Ensure Podfile has iOS 13.0 minimum
+      # 🔧 Clean iOS Pods (avoid cache issues)
+      - name: Clean iOS Pods
         run: |
-          sed -i.bak "s/platform :ios.*/platform :ios, '13.0'/" ios/Podfile || true
-          echo "✅ Set iOS Deployment Target to 13.0"
+          cd ios
+          rm -rf Pods Podfile.lock .symlinks Flutter/ephemeral
+          pod repo update
 
-      - name: Install CocoaPods
+      # 🔧 Install Pods with iOS 13 enforced
+      - name: Install iOS Pods
         run: |
           cd ios
           pod install --repo-update
-          cd ..
 
-      - name: Build iOS (release)
-        run: flutter build ios --release --no-codesign
+      # Build Android APK
+      - name: Build Android APK
+        run: flutter build apk --release
 
-      - name: Upload IPA artifact
+      # Build iOS IPA
+      - name: Build iOS IPA
+        run: flutter build ipa --release --no-codesign
+
+      # Upload Android Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-ipa
-          path: build/ios/iphoneos/*.ipa
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      # Upload iOS Artifact
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.ipa
+          path: build/ios/ipa/*.ipa
