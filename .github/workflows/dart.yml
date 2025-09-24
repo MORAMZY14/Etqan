@@ -1,73 +1,63 @@
-name: Flutter Build & Release
+name: iOS-ipa-build
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-ios:
+    name: 🎉 iOS Build
     runs-on: macos-latest
 
     steps:
-      # Checkout project
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      # Setup Flutter
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
           channel: 'stable'
+          architecture: x64
           cache: true
+        id: flutter-action
 
-      # Setup Java for Android
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - name: Get Flutter path
+        run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
 
-      # Setup CocoaPods
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
+      - name: Force iOS deployment target to 13.0
+        run: |
+          cd ios
+          if grep -q "platform :ios" Podfile; then
+            sed -i '' "s/platform :ios.*/platform :ios, '13.0'/" Podfile
+          else
+            echo "platform :ios, '13.0'" >> Podfile
+          fi
+          echo "Updated Podfile deployment target:"
+          grep "platform :ios" Podfile
 
-      # Get Flutter dependencies
-      - name: Flutter Pub Get
+      - name: Resolve Flutter dependencies
         run: flutter pub get
 
-      # 🔧 Clean iOS Pods (avoid cache issues)
-      - name: Clean iOS Pods
+      - name: Install CocoaPods dependencies (clean)
         run: |
           cd ios
-          rm -rf Pods Podfile.lock .symlinks Flutter/ephemeral
+          rm -rf Pods Podfile.lock ~/Library/Caches/CocoaPods
           pod repo update
+          pod install --verbose
+        timeout-minutes: 15
 
-      # 🔧 Install Pods with iOS 13 enforced
-      - name: Install iOS Pods
+      - name: Build iOS release (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
         run: |
-          cd ios
-          pod install --repo-update
+          cd build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload/
+          zip -qr Etqan.ipa Payload
+        timeout-minutes: 10
 
-      # Build Android APK
-      - name: Build Android APK
-        run: flutter build apk --release
-
-      # Build iOS IPA
-      - name: Build iOS IPA
-        run: flutter build ipa --release --no-codesign
-
-      # Upload Android Artifact
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Upload IPA to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: app-release.apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      # Upload iOS Artifact
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release.ipa
-          path: build/ios/ipa/*.ipa
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/ios/iphoneos/Etqan.ipa
+          tag: ${{ github.ref_name }}
+          overwrite: true
