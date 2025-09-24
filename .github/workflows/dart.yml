@@ -1,96 +1,85 @@
-name: iOS-ipa-build
+name: Build Flutter App
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.4' # same version you are using
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Clean build
+        run: flutter clean
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
   build-ios:
-    name: 🎉 iOS Build
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
         with:
-          channel: 'stable'
-          architecture: x64
-          cache: true
-        id: flutter-action
+          ruby-version: '3.3'
 
-      - name: Get Flutter path
-        run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
-
-      - name: Fix Podfile paths
-        run: |
-          cd ios
-          # Fix Flutter path
-          sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
-          
-          # Remove existing FirebaseSharedSwift line
-          sed -i '' '/FirebaseSharedSwift/d' Podfile
-          
-          # Add correct FirebaseSharedSwift version
-          echo "pod 'FirebaseSharedSwift', '11.10.0'" >> Podfile
-          
-          # Set global Firebase version (CORRECTED APPROACH)
-          sed -i '' "1i\\
-          \$FirebaseSDKVersion = '11.10.0'
-          " Podfile
-          
-          # Show modified Podfile
-          echo "Modified Podfile:"
-          cat Podfile
-
-      - name: Force iOS deployment target to 13.0 (Podfile + Xcode project)
-        run: |
-          cd ios
-          # Ensure Podfile has platform set
-          if grep -q "platform :ios" Podfile; then
-            sed -i '' "s/platform :ios.*/platform :ios, '13.0'/" Podfile
-          else
-            echo "platform :ios, '13.0'" >> Podfile
-          fi
-          echo "Updated Podfile deployment target:"
-          grep "platform :ios" Podfile
-          
-          # Also update Xcode project files
-          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 13.0/" Runner.xcodeproj/project.pbxproj
-
-      - name: Update FlutterFire dependencies
-        run: |
-          # Use minimum version constraints
-          sed -i '' 's/firebase_core: .*/firebase_core: ">=2.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_auth: .*/firebase_auth: ">=4.0.0"/' pubspec.yaml
-          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ">=4.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_storage: .*/firebase_storage: ">=11.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ">=14.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ">=0.0.1"/' pubspec.yaml
-          sed -i '' 's/cloud_functions: .*/cloud_functions: ">=4.0.0"/' pubspec.yaml
-
-      - name: Resolve dependencies
-        run: flutter pub upgrade
-
-      - name: Install CocoaPods dependencies
-        run: |
-          cd ios
-          pod repo update
-          pod install --verbose
-        timeout-minutes: 15
-
-      - run: flutter build ios --release --no-codesign
-
-      - name: Create IPA
-        run: |
-          cd build/ios/iphoneos
-          mkdir Payload
-          mv Runner.app Payload/
-          zip -qr Etqan.ipa Payload
-        timeout-minutes: 10
-
-      - name: Upload IPA to release
-        uses: svenstaro/upload-release-action@v2
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Etqan.ipa
-          tag: ${{ github.ref_name }}
-          overwrite: true
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.4'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Ensure Podfile has iOS 13.0 minimum
+        run: |
+          sed -i.bak "s/platform :ios.*/platform :ios, '13.0'/" ios/Podfile || true
+          echo "✅ Set iOS Deployment Target to 13.0"
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Build iOS (release)
+        run: flutter build ios --release --no-codesign
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ipa
+          path: build/ios/iphoneos/*.ipa
