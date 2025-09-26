@@ -27,18 +27,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ✅ Install Android SDK API 34 instead of 35
-      - name: Setup Android SDK
+      # ✅ Install Android SDK API 34 and set environment
+      - name: Setup Android SDK 34
         run: |
           yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
-      # ✅ Force compileSdkVersion 34 in app/build.gradle
-      - name: Patch compileSdkVersion
+      # ✅ Force compileSdkVersion / targetSdkVersion = 34
+      - name: Patch app/build.gradle
         run: |
           sed -i 's/compileSdkVersion.*/compileSdkVersion 34/' android/app/build.gradle || true
           sed -i 's/targetSdkVersion.*/targetSdkVersion 34/' android/app/build.gradle || true
 
-      # Patch Gradle/Kotlin Versions
+      # ✅ Patch Gradle / Kotlin versions
       - name: Patch Gradle/Kotlin Versions
         run: |
           sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip#g' android/gradle/wrapper/gradle-wrapper.properties
