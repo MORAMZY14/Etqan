@@ -1,143 +1,46 @@
-name: Build & Release
+name: Android Release APK
 
 on:
-  pull_request:
-    branches:
-      - main
-      - master
+  workflow_dispatch: # run manually from Actions tab
   push:
-    branches:
-      - main
-      - master
-      - develop
+    tags:
+      - 'v*.*.*' # run on version tags like v1.0.0
 
 jobs:
-  build:
-    name: Build & Release
-    runs-on: macos-latest
+  build-android:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set execute permissions for gradlew
-        run: chmod +x android/gradlew
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Set up Flutter
+      # Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
+          cache: true
 
-      - name: Clean up build directories
-        run: |
-          flutter clean
-          rm -rf build
-          rm -rf android/build
-          rm -rf ios/Pods
-          rm -rf ios/.symlinks
-
-      - name: Update Android SDK Version
-        run: |
-          # Update compileSdkVersion and targetSdkVersion to 35
-          sed -i '' 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' android/app/build.gradle
-          sed -i '' 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' android/app/build.gradle
-          
-          # Verify changes
-          echo "Updated build.gradle:"
-          cat android/app/build.gradle
-
-      - name: Cache Flutter and Gradle dependencies
-        uses: actions/cache@v3
+      # Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          path: |
-            ~/.pub-cache
-            ~/.gradle/caches
-            ios/Pods
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/Podfile.lock') }}-${{ hashFiles('android/app/build.gradle') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install Flutter dependencies
+      # Install dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Clean Gradle project
-        working-directory: android
-        run: ./gradlew clean
+      # Build Release APK
+      - name: Build APK
+        run: flutter build apk --release
 
-      - name: Build APK with retry
-        working-directory: android
-        run: |
-          # First try with normal build
-          if ./gradlew assembleRelease --stacktrace --info; then
-            echo "Build succeeded on first attempt"
-          else
-            echo "First build attempt failed, retrying with clean..."
-            ./gradlew clean
-            ./gradlew assembleRelease --stacktrace --info || exit 1
-          fi
-
-          if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            echo "APK not found!"
-            exit 1
-          fi
-
-      - name: Verify Android build
-        run: |
-          if [ ! -f android/build/app/outputs/flutter-apk/app-release.apk ]; then
-            echo "Android APK not found!"
-            exit 1
-          fi
-          echo "Android build verified"
-
-      - name: Check iOS Directory Exists
-        run: |
-          if [ ! -d "ios" ]; then
-            echo "iOS directory not found!"
-            exit 1
-          fi
-
-      - name: Install CocoaPods dependencies
-        working-directory: ios
-        run: |
-          sudo gem install cocoapods
-          pod repo update
-          pod install --repo-update
-
-      - name: Build iOS App
-        run: |
-          flutter build ios --release --no-codesign --verbose
-          
-          # Create artifacts directory
-          mkdir -p build/ios/artifacts
-          
-          # Create IPA
-          cd build/ios/iphoneos
-          zip -r ../../artifacts/Etqan.ipa Runner.app
-
-      - name: Verify iOS build
-        run: |
-          if [ ! -f build/ios/artifacts/Etqan.ipa ]; then
-            echo "iOS IPA not found!"
-            exit 1
-          fi
-          echo "iOS build verified"
-
-      - name: Create Release
-        uses: ncipollo/release-action@v1
+      # Upload APK as artifact
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          artifacts: |
-            android/build/app/outputs/flutter-apk/app-release.apk
-            build/ios/artifacts/Etqan.ipa
-          tag: "v1.0.${{ github.run_number }}"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: false
-          prerelease: false
-          body: "Automatic release for build ${{ github.run_number }}"
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
