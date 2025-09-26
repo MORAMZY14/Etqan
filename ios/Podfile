@@ -70,8 +70,10 @@ post_install do |installer|
     config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
   end
 
-  # ✅ Fix for missing privacy bundles on CI
+  # ✅ Fix for missing privacy bundles on CI (skip aggregate targets)
   installer.pods_project.targets.each do |target|
+    next unless target.respond_to?(:resources_build_phase) && target.resources_build_phase
+
     target.resources_build_phase.files.each do |file|
       if file.respond_to?(:file_ref) && file.file_ref &&
          file.file_ref.path =~ /_privacy(\.bundle)?$/
