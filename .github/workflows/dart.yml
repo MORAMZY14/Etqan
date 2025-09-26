@@ -5,60 +5,88 @@ on:
 
 jobs:
   build-ios:
+    name: 🎉 iOS Build
     runs-on: macos-latest
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          channel: 'stable'
           architecture: x64
+          cache: true
+        id: flutter-action
 
-      - name: Clean build artifacts
-        run: |
-          flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-          pod cache clean --all
+      - name: Get Flutter path
+        run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
-
-      - name: Ensure iOS Deployment Target is 15.0
+      - name: Fix Podfile paths
         run: |
           cd ios
-          sed -i '' "s/platform :ios, '[0-9]\+.[0-9]\+'/platform :ios, '15.0'/" Podfile
-          cd ..
+          # Fix Flutter path
+          sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
+          
+          # Remove existing FirebaseSharedSwift line
+          sed -i '' '/FirebaseSharedSwift/d' Podfile
+          
+          # Add correct FirebaseSharedSwift version
+          echo "pod 'FirebaseSharedSwift', '11.10.0'" >> Podfile
+          
+          # Set global Firebase version (CORRECTED APPROACH)
+          sed -i '' "1i\\
+          \$FirebaseSDKVersion = '11.10.0'
+          " Podfile
+          
+          # Show modified Podfile
+          echo "Modified Podfile:"
+          cat Podfile
 
-      - name: Install CocoaPods
+      - name: Force iOS deployment target to 15.0
         run: |
           cd ios
-          pod install --repo-update
-          cd ..
+          if grep -q "platform :ios" Podfile; then
+            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/" Podfile
+          else
+            echo "platform :ios, '15.0'" >> Podfile
+          fi
+          echo "Updated Podfile deployment target:"
+          grep "platform :ios" Podfile
 
-      - name: Build iOS app (Release)
-        run: flutter build ios --release --no-codesign
+      - name: Update FlutterFire dependencies
+        run: |
+          # Use minimum version constraints
+          sed -i '' 's/firebase_core: .*/firebase_core: ">=2.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_auth: .*/firebase_auth: ">=4.0.0"/' pubspec.yaml
+          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ">=4.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_storage: .*/firebase_storage: ">=11.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ">=14.0.0"/' pubspec.yaml
+          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ">=0.0.1"/' pubspec.yaml
+          sed -i '' 's/cloud_functions: .*/cloud_functions: ">=4.0.0"/' pubspec.yaml
 
-      - name: Create Payload folder
-        run: mkdir Payload
-        working-directory: build/ios/iphoneos
+      - name: Resolve dependencies
+        run: flutter pub upgrade
 
-      - name: Move Runner.app to Payload
-        run: mv Runner.app Payload
-        working-directory: build/ios/iphoneos
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod repo update
+          pod install --verbose
+        timeout-minutes: 15
 
-      - name: Zip the .ipa file
-        run: zip -qq -r -9 Etqan.ipa Payload
-        working-directory: build/ios/iphoneos
+      - run: flutter build ios --release --no-codesign
 
-      - name: Upload to GitHub Releases
+      - name: Create IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload/
+          zip -qr Etqan.ipa Payload
+        timeout-minutes: 10
+
+      - name: Upload IPA to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/ios/iphoneos/Etqan.ipa
-          tag: v2.0
+          tag: ${{ github.ref_name }}
           overwrite: true
-          body: "iOS release v2.0"
