@@ -1,21 +1,19 @@
 name: Android Release APK
 
 on:
-  workflow_dispatch: # run manually from Actions tab
+  workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*' # run on version tags like v1.0.0
+      - 'v*.*.*'
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -23,39 +21,39 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # Patch Gradle and Kotlin versions
+      # ✅ Install Android SDK API 34 instead of 35
+      - name: Setup Android SDK
+        run: |
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platforms;android-34" "build-tools;34.0.0"
+
+      # ✅ Force compileSdkVersion 34 in app/build.gradle
+      - name: Patch compileSdkVersion
+        run: |
+          sed -i 's/compileSdkVersion.*/compileSdkVersion 34/' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion.*/targetSdkVersion 34/' android/app/build.gradle || true
+
+      # Patch Gradle/Kotlin Versions
       - name: Patch Gradle/Kotlin Versions
         run: |
-          # Update gradle-wrapper to 8.7
           sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip#g' android/gradle/wrapper/gradle-wrapper.properties
-          
-          # Update Android Gradle Plugin in build.gradle
           sed -i 's#classpath "com.android.tools.build:gradle:.*"#classpath "com.android.tools.build:gradle:8.3.2"#g' android/build.gradle
-          
-          # Update Kotlin version in build.gradle (if exists)
           sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.25"/g' android/build.gradle || true
-          
-          # Update Kotlin plugin in settings.gradle (Flutter 3.19+ projects)
           sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.25"/g' android/settings.gradle || true
 
-      # Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # Clean & Build Release APK
       - name: Build APK
         run: |
           flutter clean
           flutter build apk --release
 
-      # Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
