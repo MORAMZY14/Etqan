@@ -30,13 +30,30 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Patch Gradle and Kotlin versions
+      - name: Patch Gradle/Kotlin Versions
+        run: |
+          # Update gradle-wrapper to 8.7
+          sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip#g' android/gradle/wrapper/gradle-wrapper.properties
+          
+          # Update Android Gradle Plugin in build.gradle
+          sed -i 's#classpath "com.android.tools.build:gradle:.*"#classpath "com.android.tools.build:gradle:8.3.2"#g' android/build.gradle
+          
+          # Update Kotlin version in build.gradle (if exists)
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.25"/g' android/build.gradle || true
+          
+          # Update Kotlin plugin in settings.gradle (Flutter 3.19+ projects)
+          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.25"/g' android/settings.gradle || true
+
       # Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # Build Release APK
+      # Clean & Build Release APK
       - name: Build APK
-        run: flutter build apk --release
+        run: |
+          flutter clean
+          flutter build apk --release
 
       # Upload APK as artifact
       - name: Upload APK
