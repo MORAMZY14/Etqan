@@ -5,7 +5,6 @@ on:
 
 jobs:
   build-ios:
-    name: 🎉 iOS Build
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,65 +14,23 @@ jobs:
           channel: 'stable'
           architecture: x64
           cache: true
-        id: flutter-action
 
-      - name: Get Flutter path
-        run: echo "FLUTTER_ROOT=$(which flutter | xargs dirname | xargs dirname)" >> $GITHUB_ENV
-
-      - name: Fix Podfile paths
+      - name: Install Flutter deps
         run: |
-          cd ios
-          # Fix Flutter path
-          sed -i '' "s|require .*|require '${{ env.FLUTTER_ROOT }}/packages/flutter_tools/bin/podhelper'|" Podfile
-          
-          # Remove existing FirebaseSharedSwift line
-          sed -i '' '/FirebaseSharedSwift/d' Podfile
-          
-          # Add correct FirebaseSharedSwift version
-          echo "pod 'FirebaseSharedSwift', '11.10.0'" >> Podfile
-          
-          # Set global Firebase version (CORRECTED APPROACH)
-          sed -i '' "1i\\
-          \$FirebaseSDKVersion = '11.10.0'
-          " Podfile
-          
-          # Show modified Podfile
-          echo "Modified Podfile:"
-          cat Podfile
+          flutter clean
+          flutter pub get
 
-      - name: Force iOS deployment target to 15.0
-        run: |
-          cd ios
-          if grep -q "platform :ios" Podfile; then
-            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/" Podfile
-          else
-            echo "platform :ios, '15.0'" >> Podfile
-          fi
-          echo "Updated Podfile deployment target:"
-          grep "platform :ios" Podfile
-
-      - name: Update FlutterFire dependencies
-        run: |
-          # Use minimum version constraints
-          sed -i '' 's/firebase_core: .*/firebase_core: ">=2.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_auth: .*/firebase_auth: ">=4.0.0"/' pubspec.yaml
-          sed -i '' 's/cloud_firestore: .*/cloud_firestore: ">=4.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_storage: .*/firebase_storage: ">=11.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_messaging: .*/firebase_messaging: ">=14.0.0"/' pubspec.yaml
-          sed -i '' 's/firebase_app_check: .*/firebase_app_check: ">=0.0.1"/' pubspec.yaml
-          sed -i '' 's/cloud_functions: .*/cloud_functions: ">=4.0.0"/' pubspec.yaml
-
-      - name: Resolve dependencies
-        run: flutter pub upgrade
-
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods
         run: |
           cd ios
           pod repo update
-          pod install --verbose
-        timeout-minutes: 15
+          pod deintegrate
+          rm -rf Podfile.lock Pods
+          pod install --repo-update
+          cd ..
 
-      - run: flutter build ios --release --no-codesign
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
 
       - name: Create IPA
         run: |
@@ -81,12 +38,9 @@ jobs:
           mkdir Payload
           mv Runner.app Payload/
           zip -qr Etqan.ipa Payload
-        timeout-minutes: 10
 
-      - name: Upload IPA to release
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Etqan.ipa
-          tag: ${{ github.ref_name }}
-          overwrite: true
+          name: ios-ipa
+          path: build/ios/iphoneos/Etqan.ipa
