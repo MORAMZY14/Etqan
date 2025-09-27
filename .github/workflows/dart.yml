@@ -15,23 +15,24 @@ jobs:
           architecture: x64
           cache: true
 
-      - name: Install Flutter deps
+      - name: Install CocoaPods dependencies
+        run: |
+          sudo gem install cocoapods
+
+      - name: Clean and setup iOS dependencies
         run: |
           flutter clean
           flutter pub get
-
-      - name: Clean CocoaPods & DerivedData
-        run: |
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
           cd ios
           pod repo update
           pod deintegrate
           rm -rf Podfile.lock Pods .symlinks build
-          pod install --repo-update
+          pod install --repo-update --clean-install
           cd ..
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: |
+          flutter build ios --release --no-codesign
 
       - name: Create IPA
         run: |
