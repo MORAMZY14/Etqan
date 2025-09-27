@@ -216,7 +216,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  void _showPasswordDialog() async {
+  Future<void> _showPasswordDialog() async {
     final TextEditingController passwordController = TextEditingController();
     String? adminPassword;
 
@@ -388,44 +388,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
   }
 
-  void _showSaveAppInstructions(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Save App to Home Screen'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('To save this app for quick access:'),
-            const SizedBox(height: 16),
-            _buildInstructionStep('1. Tap the menu button (three dots)', Icons.more_vert),
-            const SizedBox(height: 8),
-            _buildInstructionStep('2. Tap "Add to Home Screen"', Icons.add_box_outlined),
-            const SizedBox(height: 8),
-            _buildInstructionStep('3. Confirm the installation', Icons.check_circle),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInstructionStep(String text, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 12),
-        Text(text),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -550,15 +512,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           colorScheme.primaryContainer,
                           '/about',
                         ),
-                        if (kIsWeb) // Only show Save App card on web
-                          _buildFeatureCard(
-                            context,
-                            Icons.save,
-                            'Save App',
-                            null,
-                            colorScheme.secondaryContainer,
-                            '/save',
-                          ),
                       ],
                     ),
                   ),
@@ -670,8 +623,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 _navigateToPage(targetPage, routeName);
               } else if (label == 'Admin') {
                 _showPasswordDialog();
-              } else if (label == 'Save App') {
-                _showSaveAppInstructions(context);
               }
             });
           },

@@ -27,8 +27,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _universityController = TextEditingController();
   final TextEditingController _branchController = TextEditingController();
 
-  String _selectedDialCode = '+966';
-  String _selectedCountryCode = 'KSA';
+  String _selectedDialCode = '+20';
+  String _selectedCountryCode = 'EG';
   bool _isRegisterButtonEnabled = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -52,10 +52,26 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // List of countries with dial codes and flags
   final List<Map<String, String>> countries = [
-    {'code': 'KSA', 'name': 'Saudi Arabia', 'dial_code': '+966', 'flag': '🇸🇦'},
+    {'code': 'US', 'name': 'United States', 'dial_code': '+1', 'flag': '🇺🇸'},
+    {'code': 'GB', 'name': 'United Kingdom', 'dial_code': '+44', 'flag': '🇬🇧'},
+    {'code': 'IN', 'name': 'India', 'dial_code': '+91', 'flag': '🇮🇳'},
     {'code': 'EG', 'name': 'Egypt', 'dial_code': '+20', 'flag': '🇪🇬'},
-    {'code': 'LB', 'name': 'Lebanon', 'dial_code': '+961', 'flag': '🇱🇧'},
-    {'code': 'OMN', 'name': 'OMAN', 'dial_code': '+968', 'flag': '🇴🇲'}
+    {'code': 'SA', 'name': 'Saudi Arabia', 'dial_code': '+966', 'flag': '🇸🇦'},
+    {'code': 'AE', 'name': 'United Arab Emirates', 'dial_code': '+971', 'flag': '🇦🇪'},
+    {'code': 'FR', 'name': 'France', 'dial_code': '+33', 'flag': '🇫🇷'},
+    {'code': 'DE', 'name': 'Germany', 'dial_code': '+49', 'flag': '🇩🇪'},
+    {'code': 'CA', 'name': 'Canada', 'dial_code': '+1', 'flag': '🇨🇦'},
+    {'code': 'AU', 'name': 'Australia', 'dial_code': '+61', 'flag': '🇦🇺'},
+    {'code': 'BR', 'name': 'Brazil', 'dial_code': '+55', 'flag': '🇧🇷'},
+    {'code': 'CN', 'name': 'China', 'dial_code': '+86', 'flag': '🇨🇳'},
+    {'code': 'JP', 'name': 'Japan', 'dial_code': '+81', 'flag': '🇯🇵'},
+    {'code': 'KR', 'name': 'South Korea', 'dial_code': '+82', 'flag': '🇰🇷'},
+    {'code': 'MX', 'name': 'Mexico', 'dial_code': '+52', 'flag': '🇲🇽'},
+    {'code': 'IT', 'name': 'Italy', 'dial_code': '+39', 'flag': '🇮🇹'},
+    {'code': 'ES', 'name': 'Spain', 'dial_code': '+34', 'flag': '🇪🇸'},
+    {'code': 'RU', 'name': 'Russia', 'dial_code': '+7', 'flag': '🇷🇺'},
+    {'code': 'ZA', 'name': 'South Africa', 'dial_code': '+27', 'flag': '🇿🇦'},
+    {'code': 'TR', 'name': 'Turkey', 'dial_code': '+90', 'flag': '🇹🇷'},
     // Add more countries as needed
   ];
 
